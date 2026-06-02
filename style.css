@@ -964,3 +964,34 @@ input:checked + .toggle-slider::before { transform: translateX(21px); }
   line-height: 1.55;
 }
 
+/* ===========================
+   监控切换小点样式
+   =========================== */
+.monitor-dots-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  min-height: 12px;
+}
+.monitor-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-spring);
+  position: relative;
+}
+.monitor-dot:hover {
+  background: var(--text-secondary);
+  transform: scale(1.2);
+}
+.monitor-dot.active {
+  background: var(--accent-cyan);
+  width: 18px; /* 激活时展开为胶囊形状 */
+  border-radius: 4px;
+  box-shadow: 0 0 8px var(--accent-cyan);
+}
+

@@ -196,7 +196,8 @@ const dom = {
   closeAlertsModal: $('close-alerts-modal'),
   modalAlertTitle: $('modal-alert-title'),
   modalFromCurrency: $('modal-from-currency'),
-  modalToCurrency: $('modal-to-currency')
+  modalToCurrency: $('modal-to-currency'),
+  monitorDotsContainer: $('monitor-dots-container')
 };
 
 /* ===========================
@@ -1629,6 +1630,9 @@ function onPairChanged(from, to) {
   } else {
     fetchRate();
   }
+
+  // 5. 刷新下方指示小点以对齐高亮状态
+  renderMonitorDots();
 }
 
 /* ===========================
@@ -1665,6 +1669,9 @@ function renderAlertsList() {
   const container = dom.panelAlertsList;
   if (!container) return;
   container.innerHTML = '';
+
+  // 同步刷新监控状态卡片底部的切换指示小点
+  renderMonitorDots();
 
   const pairs = state.settings.pairs;
   if (!pairs || Object.keys(pairs).length === 0) {
@@ -1777,6 +1784,49 @@ function deleteAlertPair(pairKey) {
 
     showToast('🗑️', '提醒已删除', '该汇率提醒规则已被彻底删除', 2500);
   }
+}
+
+function renderMonitorDots() {
+  const container = dom.monitorDotsContainer;
+  if (!container) return;
+  container.innerHTML = '';
+
+  const pairs = state.settings.pairs;
+  if (!pairs || Object.keys(pairs).length === 0) {
+    return;
+  }
+
+  const pairKeys = Object.keys(pairs).filter(key => pairs[key] && pairs[key].targetRate);
+  if (pairKeys.length === 0) return;
+
+  const currentPairKey = `${state.fromCurrency}_${state.toCurrency}`;
+
+  pairKeys.forEach((pairKey) => {
+    const parts = pairKey.split('_');
+    if (parts.length !== 2) return;
+    const fromCode = parts[0];
+    const toCode = parts[1];
+
+    const dot = document.createElement('div');
+    dot.className = 'monitor-dot';
+    if (pairKey === currentPairKey) {
+      dot.classList.add('active');
+    }
+    
+    // 悬停气泡提示，提升操作直观度
+    dot.title = `${fromCode} → ${toCode} (🎯 ${pairs[pairKey].targetRate.toFixed(4)})`;
+
+    dot.addEventListener('click', () => {
+      if (pairKey !== currentPairKey) {
+        dom.fromCurrency.value = fromCode;
+        dom.toCurrency.value = toCode;
+        onPairChanged(fromCode, toCode);
+        showToast('🔄', '切换监控对', `已切换主监控为 ${fromCode} → ${toCode}`, 2000);
+      }
+    });
+
+    container.appendChild(dot);
+  });
 }
 
 function onModalPairChanged() {
