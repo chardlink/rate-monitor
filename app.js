@@ -52,7 +52,7 @@ let state = {
   allRates: {},         // 存放所有基于 USD 的汇率，键值全大写
   history: [],          // 当前币对的汇率历史 [{ ts, rate, change }]
   settings: {
-    interval: 60,       // 默认 60 秒刷新一次
+    interval: 3600,     // 默认 3600 秒（1小时）刷新一次
     soundEnabled: false,// 默认不开启提示音（防吵闹）
     monitorEnabled: true,
     fromCurrency: 'USD',
@@ -1307,7 +1307,11 @@ function loadSettings() {
   dom.btnBaseMarket.classList.toggle('active', !isWfBase);
 
   // 应用通用设置到 DOM
-  dom.refreshInterval.value = state.settings.interval || 60;
+  // 智能旧缓存校验迁移：若本地 localStorage 缓存了 60 或其他废弃秒数，自动安全迁移到 3600 秒（1小时）
+  if (state.settings.interval !== 900 && state.settings.interval !== 3600) {
+    state.settings.interval = 3600;
+  }
+  dom.refreshInterval.value = state.settings.interval;
   dom.soundToggle.checked = !!state.settings.soundEnabled;
   dom.monitorToggle.checked = !!state.settings.monitorEnabled;
 
