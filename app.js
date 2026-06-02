@@ -877,9 +877,24 @@ function drawChart() {
     dom.chartTooltip.style.opacity = 1;
     dom.chartTooltip.style.left = `${e.clientX - rect.left + 14}px`;
     dom.chartTooltip.style.top = `${e.clientY - rect.top - 34}px`;
-    dom.chartTooltip.innerHTML = `<strong>${d.rate.toFixed(5)}</strong> &nbsp; <span style="opacity:0.7">${new Date(
-      d.ts
-    ).toLocaleTimeString('zh-CN')}</span>`;
+    const dateObj = new Date(d.ts);
+    const isMultiDay = state.displayRange.endsWith('d');
+    let timeLabel = '';
+    if (isMultiDay) {
+      // 7天、15天、30天显示具体日期：2026-05-28
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      timeLabel = `${year}-${month}-${day}`;
+    } else {
+      // 12小时、24小时显示：月-日 时:分:秒
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const timeStr = dateObj.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      timeLabel = `${month}-${day} ${timeStr}`;
+    }
+
+    dom.chartTooltip.innerHTML = `<strong>${d.rate.toFixed(5)}</strong> &nbsp; <span style="opacity:0.7">${timeLabel}</span>`;
   };
 
   canvas.onmouseleave = () => {
