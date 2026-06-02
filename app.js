@@ -66,7 +66,7 @@ let state = {
       { id: 'lianlian', name: '连连支付', fee: 0.40, offset: 0.0000 }
     ],
     activePlatformId: 'wf',
-    alertBase: 'wf',    // 默认以激活平台估算结汇价作为提醒和监控的依据
+    alertBase: 'market',    // 默认以市场参考价作为提醒和监控的依据
     pairs: {}           // 存放各个币对的具体提醒设置 { 'USD_CNH': { targetRate, direction } }
   },
   intervalTimer: null,
@@ -1583,7 +1583,7 @@ function updateTargetStatus() {
   const targetRate = state.settings.targetRate;
   const direction = state.settings.direction;
   const rate = state.currentRate;
-  const alertBase = state.settings.alertBase || 'wf';
+  const alertBase = state.settings.alertBase || 'market';
   const isWfBase = alertBase === 'wf';
   const platform = getActivePlatform();
 
@@ -1846,7 +1846,7 @@ function renderAlertsList() {
   }
 
   const platform = getActivePlatform();
-  const alertBase = state.settings.alertBase || 'wf';
+  const alertBase = state.settings.alertBase || 'market';
   const isWfBase = alertBase === 'wf';
 
   for (let pairKey in pairs) {
@@ -2041,18 +2041,19 @@ function openAlertsModal(mode = 'add') {
   // 初始化模态框相关的标签和当前值汇率
   onModalPairChanged();
 
-  // 同步提醒依据的选中状态
-  const alertBase = state.settings.alertBase || 'wf';
-  if (dom.btnBaseMarket) dom.btnBaseMarket.classList.toggle('active', alertBase === 'market');
-  if (dom.btnBaseWf) dom.btnBaseWf.classList.toggle('active', alertBase === 'wf');
-
   if (mode === 'add') {
     state.settings.direction = 'above';
+    state.settings.alertBase = 'market';
     dom.btnAbove.classList.add('active');
     dom.btnBelow.classList.remove('active');
   } else {
     loadSettingsForPair(from, to);
   }
+
+  // 同步提醒依据的选中状态
+  const alertBase = state.settings.alertBase || 'market';
+  if (dom.btnBaseMarket) dom.btnBaseMarket.classList.toggle('active', alertBase === 'market');
+  if (dom.btnBaseWf) dom.btnBaseWf.classList.toggle('active', alertBase === 'wf');
 
   dom.alertsModal.classList.remove('hidden');
 }
