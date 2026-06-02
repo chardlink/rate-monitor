@@ -784,9 +784,10 @@ function getFilteredHistory() {
   let filtered = state.history.filter((h) => h.ts >= cutoff);
   
   // 智能补充边界线：如果当前 12h/24h 周期内实时记录数少于 2 个（导致折线画不出），
-  // 但我们有前几天 EOD 历史数据，我们就向上追溯引入 cutoff 之前最近的数据点，确保折线能够连通绘制
+  // 我们就向上合理追溯引入 cutoff 之前最近的数据点。追溯范围限制在 1 倍时间窗口内，防止拉取过久以前的脏数据点导致时间轴严重扭曲乱掉
   if (filtered.length < 2) {
-    const olderPoints = state.history.filter((h) => h.ts < cutoff);
+    const maxAge = ranges[state.displayRange] || 12 * 3600000;
+    const olderPoints = state.history.filter((h) => h.ts < cutoff && h.ts >= (cutoff - maxAge));
     const needed = 2 - filtered.length;
     if (olderPoints.length >= needed) {
       const addition = olderPoints.slice(-needed);
