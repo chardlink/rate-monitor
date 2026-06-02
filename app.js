@@ -194,7 +194,9 @@ const dom = {
   panelAlertsList: $('panel-alerts-list'),
   alertsModal: $('alerts-modal'),
   closeAlertsModal: $('close-alerts-modal'),
-  modalAlertTitle: $('modal-alert-title')
+  modalAlertTitle: $('modal-alert-title'),
+  modalFromCurrency: $('modal-from-currency'),
+  modalToCurrency: $('modal-to-currency')
 };
 
 /* ===========================
@@ -278,6 +280,8 @@ function populateSelects() {
   dom.boardBase.innerHTML = optionsHTML;
   dom.calcFrom.innerHTML = optionsHTML;
   dom.calcTo.innerHTML = optionsHTML;
+  if (dom.modalFromCurrency) dom.modalFromCurrency.innerHTML = optionsHTML;
+  if (dom.modalToCurrency) dom.modalToCurrency.innerHTML = optionsHTML;
 }
 
 function updateFlags() {
@@ -1190,14 +1194,16 @@ function saveSettings() {
   state.settings.alertBase = dom.btnBaseWf.classList.contains('active') ? 'wf' : 'market';
 
   // 币对特异性设置
-  const pairKey = `${state.fromCurrency}_${state.toCurrency}`;
+  const from = dom.modalFromCurrency.value || state.fromCurrency;
+  const to = dom.modalToCurrency.value || state.toCurrency;
+  const pairKey = `${from}_${to}`;
   if (!state.settings.pairs) state.settings.pairs = {};
 
   const inputVal = parseFloat(dom.targetRate.value);
   if (!isNaN(inputVal) && inputVal > 0) {
     const prevPair = state.settings.pairs[pairKey];
     // 智能锁定价格保存时刻的实时价格作为进度条 of 0% 起跑线
-    const currentBase = state.currentRate || inputVal;
+    const currentBase = state.modalCurrentRate || state.currentRate || inputVal;
     const baseRate = (prevPair && prevPair.targetRate === inputVal && prevPair.direction === state.settings.direction) 
       ? (prevPair.baseRate || currentBase) 
       : currentBase;
@@ -1207,10 +1213,14 @@ function saveSettings() {
       direction: state.settings.direction || 'above',
       baseRate: baseRate
     };
-    state.settings.targetRate = inputVal;
+    if (from === state.fromCurrency && to === state.toCurrency) {
+      state.settings.targetRate = inputVal;
+    }
   } else {
     delete state.settings.pairs[pairKey];
-    state.settings.targetRate = null;
+    if (from === state.fromCurrency && to === state.toCurrency) {
+      state.settings.targetRate = null;
+    }
   }
 
   state.alertFired = false; // 重置触发状态，以便在达标时发出声音
@@ -1769,23 +1779,54 @@ function deleteAlertPair(pairKey) {
   }
 }
 
+function onModalPairChanged() {
+  const fromCode = dom.modalFromCurrency.value;
+  const toCode = dom.modalToCurrency.value;
+
+  // 1. 更新模态框标题和提示标签
+  dom.modalAlertTitle.textContent = dom.modalAlertTitle.textContent.startsWith('✏️') 
+    ? `✏️ 编辑到价提醒 (${fromCode}/${toCode})` 
+    : `➕ 新增到价提醒 (${fromCode}/${toCode})`;
+  dom.labelPair.textContent = `${fromCode}/${toCode}`;
+
+  // 2. 更新输入框前缀符号
+  const toCurr = CURRENCY_LIST.find((c) => c.code === toCode) || { symbol: '¥' };
+  dom.targetPrefix.textContent = toCurr.symbol;
+
+  // 3. 计算并动态更新当前汇率
+  const usdToFrom = state.allRates[fromCode];
+  const usdToTo = state.allRates[toCode];
+  
+  if (usdToFrom && usdToTo) {
+    const calculatedRate = usdToTo / usdToFrom;
+    state.modalCurrentRate = calculatedRate;
+  } else {
+    state.modalCurrentRate = null;
+  }
+}
+
 function openAlertsModal(mode = 'add') {
   const from = state.fromCurrency;
   const to = state.toCurrency;
   
+  // 初始化模态框中的币种下拉选择框
+  if (dom.modalFromCurrency) dom.modalFromCurrency.value = from;
+  if (dom.modalToCurrency) dom.modalToCurrency.value = to;
+
+  // 初始化模态框相关的标签和当前值汇率
+  onModalPairChanged();
+
   // 同步提醒依据的选中状态
   const alertBase = state.settings.alertBase || 'wf';
   if (dom.btnBaseMarket) dom.btnBaseMarket.classList.toggle('active', alertBase === 'market');
   if (dom.btnBaseWf) dom.btnBaseWf.classList.toggle('active', alertBase === 'wf');
 
   if (mode === 'add') {
-    dom.modalAlertTitle.textContent = `➕ 新增到价提醒 (${from}/${to})`;
     dom.targetRate.value = state.currentRate ? state.currentRate.toFixed(4) : '';
     state.settings.direction = 'above';
     dom.btnAbove.classList.add('active');
     dom.btnBelow.classList.remove('active');
   } else {
-    dom.modalAlertTitle.textContent = `✏️ 编辑到价提醒 (${from}/${to})`;
     loadSettingsForPair(from, to);
   }
 
@@ -1833,12 +1874,21 @@ function bindEvents() {
 
   // 填充当前值按钮
   dom.useCurrentBtn.addEventListener('click', () => {
-    if (state.currentRate) {
-      dom.targetRate.value = state.currentRate.toFixed(4);
+    const rate = state.modalCurrentRate || state.currentRate;
+    if (rate) {
+      dom.targetRate.value = rate.toFixed(4);
     } else {
       showToast('⚠️', '提示', '请等待最新汇率数据加载完成', 2000);
     }
   });
+
+  // 模态框币种切换联动
+  if (dom.modalFromCurrency) {
+    dom.modalFromCurrency.addEventListener('change', onModalPairChanged);
+  }
+  if (dom.modalToCurrency) {
+    dom.modalToCurrency.addEventListener('change', onModalPairChanged);
+  }
 
   // 快捷微调加减按钮（仅对目标提醒内的快捷增减按钮生效，避开平台配置按钮）
   document.querySelectorAll('.quick-targets .quick-btn').forEach((btn) => {
