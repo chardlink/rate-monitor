@@ -187,7 +187,13 @@ const dom = {
   platformOffsetInput: $('platform-offset-input'),
   btnSavePlatform: $('btn-save-platform'),
   btnAddPlatform: $('btn-add-platform'),
-  btnDeletePlatform: $('btn-delete-platform')
+  btnDeletePlatform: $('btn-delete-platform'),
+
+  // 管理多组提醒 Modal DOM 映射
+  btnManageAlerts: $('btn-manage-alerts'),
+  alertsModal: $('alerts-modal'),
+  closeAlertsModal: $('close-alerts-modal'),
+  alertsListContainer: $('alerts-list-container')
 };
 
 /* ===========================
@@ -1634,6 +1640,127 @@ function syncPlatformEditor() {
   updateTargetStatus();
 }
 
+/* ===========================
+   管理多组提醒的渲染与删除逻辑
+   =========================== */
+function renderAlertsList() {
+  const container = dom.alertsListContainer;
+  if (!container) return;
+  container.innerHTML = '';
+
+  const pairs = state.settings.pairs;
+  if (!pairs || Object.keys(pairs).length === 0) {
+    container.innerHTML = `
+      <div class="no-alerts-hint">
+        📂 暂无任何监控提醒规则。<br>
+        <span style="font-size:0.78rem; opacity:0.75;">您可以在右侧配置面板中设定汇率数值并点击“保存当前设置”来进行添加。</span>
+      </div>
+    `;
+    return;
+  }
+
+  const platform = getActivePlatform();
+  const alertBase = state.settings.alertBase || 'wf';
+  const isWfBase = alertBase === 'wf';
+
+  for (let pairKey in pairs) {
+    const spec = pairs[pairKey];
+    if (!spec || !spec.targetRate) continue;
+
+    const parts = pairKey.split('_');
+    if (parts.length !== 2) continue;
+    const fromCode = parts[0];
+    const toCode = parts[1];
+
+    const card = document.createElement('div');
+    card.className = 'alert-item-card';
+    card.dataset.pair = pairKey;
+    card.dataset.from = fromCode;
+    card.dataset.to = toCode;
+
+    const dirBadge = spec.direction === 'above' 
+      ? '<span class="alert-item-badge above">📈 高于目标时提醒</span>' 
+      : '<span class="alert-item-badge below">📉 低于目标时提醒</span>';
+
+    const baseName = isWfBase ? `${platform.name}估算价` : '市场参考价';
+
+    card.innerHTML = `
+      <div class="alert-item-left">
+        <span class="alert-item-pair">${fromCode} → ${toCode}</span>
+        <div class="alert-item-details">
+          ${dirBadge}
+          <span style="color:var(--accent-cyan); font-weight:600;">🎯 ${spec.targetRate.toFixed(4)}</span>
+          <span style="opacity:0.65;">(${baseName})</span>
+        </div>
+      </div>
+      <button class="btn-delete-alert" data-pair="${pairKey}" type="button">🗑️ 删除</button>
+    `;
+
+    // 绑定卡片主体点击事件：点击切换当前币种对
+    card.addEventListener('click', (e) => {
+      // 避免点击删除按钮时触发切换
+      if (e.target.classList.contains('btn-delete-alert')) return;
+
+      const from = card.dataset.from;
+      const to = card.dataset.to;
+
+      dom.fromCurrency.value = from;
+      dom.toCurrency.value = to;
+
+      onPairChanged(from, to);
+      closeAlertsModal();
+
+      showToast('🔄', '监控对已载入', `已自动切换当前面板为 ${from} → ${to}`, 2500);
+    });
+
+    // 绑定删除按钮点击事件
+    card.querySelector('.btn-delete-alert').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = e.target.dataset.pair;
+      deleteAlertPair(key);
+    });
+
+    container.appendChild(card);
+  }
+}
+
+function deleteAlertPair(pairKey) {
+  if (confirm(`确定要彻底删除 [${pairKey.replace('_', ' → ')}] 的到价提醒规则吗？`)) {
+    // 1. 从 pairs 对象中删除
+    if (state.settings.pairs) {
+      delete state.settings.pairs[pairKey];
+    }
+
+    // 2. 如果删除的正好是当前主面板编辑 of 币对，同步更新主面板参数
+    const currentPairKey = `${state.fromCurrency}_${state.toCurrency}`;
+    if (currentPairKey === pairKey) {
+      dom.targetRate.value = '';
+      state.settings.targetRate = null;
+    }
+
+    // 3. 保存设置数据
+    saveSettingsDataOnly();
+
+    // 4. 重绘并更新状态
+    updateTargetStatus();
+    drawChart();
+
+    // 5. 重新渲染列表
+    renderAlertsList();
+
+    showToast('🗑️', '提醒已删除', '该汇率提醒规则已被彻底删除', 2500);
+  }
+}
+
+function openAlertsModal() {
+  renderAlertsList();
+  dom.alertsModal.classList.remove('hidden');
+}
+
+function closeAlertsModal() {
+  dom.alertsModal.classList.add('hidden');
+}
+
 function bindEvents() {
   // 主面板下拉框监听
   dom.fromCurrency.addEventListener('change', () => {
@@ -1875,6 +2002,21 @@ function bindEvents() {
       showToast('🗑️', '已删除平台', `平台 [${name}] 的配置已被彻底删除`, 2500);
     }
   });
+
+  // 管理多组提醒 Modal 事件绑定
+  if (dom.btnManageAlerts) {
+    dom.btnManageAlerts.addEventListener('click', openAlertsModal);
+  }
+  if (dom.closeAlertsModal) {
+    dom.closeAlertsModal.addEventListener('click', closeAlertsModal);
+  }
+  if (dom.alertsModal) {
+    dom.alertsModal.addEventListener('click', (e) => {
+      if (e.target === dom.alertsModal) {
+        closeAlertsModal();
+      }
+    });
+  }
 
   // 禁用所有数字输入框滚动滚轮修改数值的默认浏览器行为，防止滚动页面时误触
   document.querySelectorAll('input[type="number"]').forEach((input) => {

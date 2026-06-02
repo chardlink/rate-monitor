@@ -410,7 +410,10 @@
             </label>
           </div>
 
-          <button class="btn-save" id="save-settings">💾 保存设置</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-save" id="save-settings" style="flex: 2;">💾 保存当前设置</button>
+            <button class="btn-save" id="btn-manage-alerts" style="flex: 1.1; background: rgba(124, 58, 237, 0.12); border: 1px solid var(--accent-purple); color: var(--accent-purple);" type="button">📂 管理多组</button>
+          </div>
         </div>
 
       </div>
@@ -449,6 +452,21 @@
       </p>
       <p>⚠️ 本工具显示<strong>银行间参考汇率（数据并非实时秒级跳动）</strong>，与万里汇等平台实时报价存在出入属正常：①万里汇使用实时市场价（日内波动）；②万里汇另加 0.3%~0.8% 结汇点差；③CNH 离岸价与 CNY 在岸价本身有价差。建议以本工具做趋势判断，以万里汇实时页面确认最终价格。</p>
     </footer>
+  </div>
+
+  <!-- 管理多组提醒 Modal 弹窗 -->
+  <div id="alerts-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">📂 已设监控提醒列表</h3>
+        <button id="close-alerts-modal" class="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alerts-list-container" id="alerts-list-container">
+          <!-- 动态填充 -->
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
