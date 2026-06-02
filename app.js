@@ -72,7 +72,7 @@ let state = {
   intervalTimer: null,
   alertFired: false,    // 避免单次达标事件中重复触发通知
   alertFiredPairs: {},  // 记录各个币对是否已经发出警报以防重复轰炸 { 'USD_CNH': true }
-  displayRange: '1h',   // 图表显示范围
+  displayRange: '12h',  // 图表默认显示范围为 12 小时
   boardBase: 'CNH'      // 行情板基准货币
 };
 
@@ -729,8 +729,14 @@ function initChart() {
 
 function getFilteredHistory() {
   const now = Date.now();
-  const ranges = { '1h': 3600000, '6h': 21600000, '24h': 86400000 };
-  const cutoff = now - (ranges[state.displayRange] || 3600000);
+  const ranges = {
+    '12h': 12 * 3600000,
+    '24h': 24 * 3600000,
+    '7d': 7 * 86400000,
+    '15d': 15 * 86400000,
+    '30d': 30 * 86400000
+  };
+  const cutoff = now - (ranges[state.displayRange] || 12 * 3600000);
   return state.history.filter((h) => h.ts >= cutoff);
 }
 
