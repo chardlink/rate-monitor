@@ -87,12 +87,13 @@ async function saveHistory(history) {
 async function bootstrapHistory() {
   try {
     const history = await getHistory();
-    if (history.length > 0) {
+    // 如果记录数较多（说明已经成功铺底并积累了），则跳过
+    if (history.length >= 20) {
       console.log(`[初始化] 历史数据库已有 ${history.length} 条记录，跳过首次铺底。`);
       return;
     }
 
-    console.log('[初始化] 检测到历史记录为空，正在开启 30 天历史汇率自动铺底程序...');
+    console.log('[初始化] 正在开启 30 天历史汇率自动铺底与智能合并程序...');
     const daysToFetch = 30;
     const now = Date.now();
     const fetchPromises = [];
@@ -133,11 +134,20 @@ async function bootstrapHistory() {
     }
 
     const results = await Promise.all(fetchPromises);
-    const validResults = results.filter(r => r !== null).sort((a, b) => a.ts - b.ts);
+    const validResults = results.filter(r => r !== null);
 
     if (validResults.length > 0) {
-      await saveHistory(validResults);
-      console.log(`[初始化] 历史记录铺底成功！成功导入 ${validResults.length} 天的历史汇率数据。`);
+      // 智能合并：将已有的个别单点记录与铺底的 30 天数据合并，按日期去重并排序，实现完美无缝首屏
+      const merged = [...validResults, ...history];
+      const uniqueMap = new Map();
+      merged.forEach(item => {
+        const dStr = item.date || new Date(item.ts).toISOString().split('T')[0];
+        uniqueMap.set(dStr, item);
+      });
+      const finalHistory = Array.from(uniqueMap.values()).sort((a, b) => a.ts - b.ts);
+
+      await saveHistory(finalHistory);
+      console.log(`[初始化] 历史记录铺底成功！智能合并后共有 ${finalHistory.length} 条历史汇率数据。`);
     } else {
       console.log('[初始化] 历史记录铺底未获取到有效数据，将在后续刷新中自动积累。');
     }
@@ -276,7 +286,15 @@ app.get('/api/history', async (req, res) => {
   const toUpper = to.toUpperCase();
 
   try {
-    const history = await getHistory();
+    let history = await getHistory();
+    
+    // 智能自愈：如果检测到当前磁盘记录数太少（如小于 15 条，说明未完成首屏铺底），则在请求时立即触发并合并
+    if (history.length < 15) {
+      console.log(`[自动修复] 检测到历史记录偏少 (${history.length} 条)，正立即执行 30 天自动铺底自愈...`);
+      await bootstrapHistory();
+      history = await getHistory(); // 重新读取最新合并的数据
+    }
+
     // 映射出该币对的交叉汇率历史
     const mapped = history.map(h => {
       const usdToFrom = h.rates[fromUpper];
