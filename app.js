@@ -1409,6 +1409,69 @@ function saveHistoryForPair(from, to, history) {
   }
 }
 
+async function bootstrapHistoryInClient(from, to) {
+  try {
+    console.log(`[客户端自愈] 正在为本地浏览器币对 ${from}/${to} 并发拉取 30 天 CDN 汇率铺底...`);
+    const daysToFetch = 30;
+    const now = Date.now();
+    const fetchPromises = [];
+
+    for (let i = daysToFetch; i > 0; i--) {
+      const date = new Date(now - i * 24 * 60 * 60 * 1000);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      fetchPromises.push((async () => {
+        const url = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${dateStr}/v1/currencies/usd.json`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          const data = await res.json();
+          const rawRates = data.usd || data.USD;
+          if (!rawRates) return null;
+
+          const rates = {};
+          for (let key in rawRates) {
+            rates[key.toUpperCase()] = parseFloat(rawRates[key]);
+          }
+          rates['USD'] = 1.0;
+          
+          if (!rates['CNH'] && rates['CNY']) rates['CNH'] = rates['CNY'];
+          if (!rates['CNY'] && rates['CNH']) rates['CNY'] = rates['CNH'];
+
+          const usdToFrom = rates[from.toUpperCase()];
+          const usdToTo = rates[to.toUpperCase()];
+          if (!usdToFrom || !usdToTo) return null;
+
+          return {
+            ts: date.getTime(),
+            rate: usdToTo / usdToFrom,
+            change: 0
+          };
+        } catch {
+          return null;
+        }
+      })());
+    }
+
+    const results = await Promise.all(fetchPromises);
+    const validResults = results.filter(r => r !== null).sort((a, b) => a.ts - b.ts);
+
+    if (validResults.length > 0) {
+      for (let i = 1; i < validResults.length; i++) {
+        validResults[i].change = validResults[i].rate - validResults[i - 1].rate;
+      }
+      console.log(`[客户端自愈] 成功为 ${from}/${to} 补全并去重导入了 ${validResults.length} 天的历史走势数据`);
+      return validResults;
+    }
+  } catch (err) {
+    console.warn('[客户端自愈] 铺底拉取失败:', err.message);
+  }
+  return [];
+}
+
 function saveHistory() {
   saveHistoryForPair(state.fromCurrency, state.toCurrency, state.history);
 }
@@ -1619,6 +1682,19 @@ function onPairChanged(from, to) {
     });
   } else {
     state.history = loadHistoryForPair(from, to);
+    // 客户端自愈铺底：若本地 localStorage 缓存为空，则开启异步 30 天历史快照获取，拉满首开图表
+    if (state.history.length === 0) {
+      bootstrapHistoryInClient(from, to).then(history => {
+        if (state.fromCurrency === from && state.toCurrency === to && history.length > 0) {
+          state.history = history;
+          saveHistoryForPair(from, to, history);
+          renderHistoryTable();
+          updateChartStats();
+          drawChart();
+          updateTargetStatus();
+        }
+      });
+    }
     renderHistoryTable();
   }
 
