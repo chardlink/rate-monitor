@@ -71,6 +71,7 @@ let state = {
   },
   intervalTimer: null,
   alertFired: false,    // 避免单次达标事件中重复触发通知
+  alertFiredPairs: {},  // 记录各个币对是否已经发出警报以防重复轰炸 { 'USD_CNH': true }
   displayRange: '1h',   // 图表显示范围
   boardBase: 'CNH'      // 行情板基准货币
 };
@@ -601,7 +602,7 @@ function onRatesReceived() {
   updateChartStats();
   drawChart();
   updateTargetStatus();
-  checkAlert(calculatedRate);
+  checkAlerts();
   updateRateBoard();
   updateCalculator();
 }
@@ -973,31 +974,56 @@ function updateRateBoard() {
 /* ===========================
    提醒与报警系统 (Chord 提示音 / Title 闪烁)
    =========================== */
-function checkAlert(rate) {
-  const { targetRate, direction, monitorEnabled, alertBase } = state.settings;
-  if (!monitorEnabled || !targetRate) return;
+function checkAlerts() {
+  const { monitorEnabled, alertBase, pairs } = state.settings;
+  if (!monitorEnabled || !pairs || typeof pairs !== 'object') return;
 
-  const isWfBase = alertBase === 'wf';
+  if (!state.alertFiredPairs) {
+    state.alertFiredPairs = {};
+  }
+
   const platform = getActivePlatform();
-  const evalRate = isWfBase ? rate * (1 - platform.fee / 100) + platform.offset : rate;
+  const isWfBase = alertBase === 'wf';
 
-  const triggered =
-    (direction === 'above' && evalRate >= targetRate) ||
-    (direction === 'below' && evalRate <= targetRate);
+  for (let pairKey in pairs) {
+    const spec = pairs[pairKey];
+    if (!spec || !spec.targetRate) continue;
 
-  if (triggered && !state.alertFired) {
-    state.alertFired = true;
-    fireAlert(evalRate, targetRate, direction, isWfBase, platform.name);
-  } else if (!triggered) {
-    state.alertFired = false;
+    const parts = pairKey.split('_');
+    if (parts.length !== 2) continue;
+
+    const fromCode = parts[0];
+    const toCode = parts[1];
+
+    const usdToFrom = state.allRates[fromCode];
+    const usdToTo = state.allRates[toCode];
+    if (!usdToFrom || !usdToTo) continue;
+
+    // 核心交叉汇率计算: Rate = Target_USD_value / Source_USD_value
+    const currentRate = usdToTo / usdToFrom;
+    const evalRate = isWfBase ? currentRate * (1 - platform.fee / 100) + platform.offset : currentRate;
+    const { targetRate, direction } = spec;
+
+    const triggered =
+      (direction === 'above' && evalRate >= targetRate) ||
+      (direction === 'below' && evalRate <= targetRate);
+
+    if (triggered) {
+      if (!state.alertFiredPairs[pairKey]) {
+        state.alertFiredPairs[pairKey] = true;
+        fireAlert(fromCode, toCode, evalRate, targetRate, direction, isWfBase, platform.name);
+      }
+    } else {
+      state.alertFiredPairs[pairKey] = false;
+    }
   }
 }
 
-function fireAlert(rate, target, direction, isWfBase, platformName) {
+function fireAlert(from, to, rate, target, direction, isWfBase, platformName) {
   const dirLabel = direction === 'above' ? '已上涨到' : '已下跌到';
   const title = `🎯 汇率目标价位已达成！`;
   const baseLabel = isWfBase ? `（${platformName}估算价）` : '（市场参考价）';
-  const msg = `${state.fromCurrency}/${state.toCurrency}${baseLabel}${dirLabel} ${rate.toFixed(4)}，已满足设定目标 ${target.toFixed(4)}`;
+  const msg = `${from}/${to}${baseLabel}${dirLabel} ${rate.toFixed(4)}，已满足设定目标 ${target.toFixed(4)}`;
 
   // 显示顶部通知栏
   dom.alertBanner.classList.remove('hidden');
@@ -1008,7 +1034,7 @@ function fireAlert(rate, target, direction, isWfBase, platformName) {
   let flashCount = 0;
   const originalTitle = document.title;
   const titleTimer = setInterval(() => {
-    document.title = flashCount % 2 === 0 ? `🔔 【${rate.toFixed(4)}】达标！` : originalTitle;
+    document.title = flashCount % 2 === 0 ? `🔔 【${rate.toFixed(4)}】${from}/${to} 达标！` : originalTitle;
     flashCount++;
     if (flashCount > 12) {
       clearInterval(titleTimer);
@@ -1022,7 +1048,7 @@ function fireAlert(rate, target, direction, isWfBase, platformName) {
   }
 
   // 弹出固定 Toast，需要用户手动滑动关闭或永不消失
-  showToast('🎯', '汇率提醒', msg, 0);
+  showToast('🎯', `汇率提醒 (${from}/${to})`, msg, 0);
 }
 
 function playAlertSound() {
@@ -1179,6 +1205,8 @@ function saveSettings() {
   }
 
   state.alertFired = false; // 重置触发状态，以便在达标时发出声音
+  if (!state.alertFiredPairs) state.alertFiredPairs = {};
+  state.alertFiredPairs[pairKey] = false;
 
   try {
     localStorage.setItem('rate_settings_v3', JSON.stringify(state.settings));
