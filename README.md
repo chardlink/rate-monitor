@@ -38,9 +38,9 @@
 ### 方案 2：群晖 NAS 部署（免下载源码，极力推荐）
 得益于 GitHub 容器镜像仓库（GHCR）的自动构建，你**不需要下载任何源码文件**，只需直接利用群晖的 **Container Manager** 套件即可一键部署：
 
-1.  打开群晖 NAS 的 **Container Manager**。
-2.  点击 **`项目` (Projects)** -> **`新增` (Create)**。
-3.  选择合适的路径，在数据源处选择“使用 docker-compose.yml 创建项目”，并粘贴以下 **8 行配置** 即可：
+1.  打开群晖 NAS 的 `File Station`，在你的 `docker` 文件夹下新建目录 `rate-monitor`，并在其内建立一个空的子文件夹 `data`。
+2.  打开群晖 NAS 的 **Container Manager** -> **项目** -> **新增**。
+3.  项目名称输入 `rate-monitor`，路径选择刚才新建的 `/docker/rate-monitor` 文件夹，数据源选择“创建 docker-compose.yml”，并粘贴以下配置：
 
 ```yaml
 version: '3.8'
@@ -51,16 +51,29 @@ services:
     container_name: rate-monitor-app
     ports:
       - "8080:80"  # 将群晖的 8080 端口映射到容器。你可以自由更换为 8081 等其他端口
+    volumes:
+      - ./data:/usr/src/app/data  # 极度重要：挂载持久化卷，确保数据和密钥不丢失
     restart: always
 ```
-4.  保存运行后，在浏览器访问 `http://<群晖NAS局域网IP>:8080` 即可开始使用。
+4.  保存运行后，在浏览器访问 `http://<群晖NAS局域网IP>:8080` 即可启动并瞬间载入 30 天走势图！
 
 ---
 
-### 方案 3：Ubuntu / Linux 终端部署
+### 方案 3：Ubuntu / Linux 服务器部署
 
-如果要在你的 Ubuntu 云服务器或本地 Linux 机器上部署，直接运行以下命令：
+在您的 Ubuntu / Debian 服务器上，您可以根据喜好选择 **Docker 容器一键部署** 或 **原生 Shell 一键部署**：
 
+#### 选项 A：原生 Shell 自动部署（省去安装 Docker，最推荐）
+我们专门提供了一个全自动一键安装脚本，会自动安装 Node.js、安装 Git、通过 PM2 进程守护工具在后台挂起 24 小时静默运行服务，并配置开机自启。
+
+您只需在服务器终端执行以下一行命令即可：
+```bash
+wget -O install.sh https://raw.githubusercontent.com/chardlink/rate-monitor/main/install.sh && sudo bash install.sh
+```
+部署成功后，会显示服务器的访问 IP 以及 PM2 管理命令。
+
+#### 选项 B：Docker Compose 容器部署
+若您已安装 Docker，可运行以下命令：
 ```bash
 # 1. 克隆代码仓库
 git clone https://github.com/chardlink/rate-monitor.git
@@ -68,8 +81,8 @@ git clone https://github.com/chardlink/rate-monitor.git
 # 2. 进入项目目录
 cd rate-monitor
 
-# 3. 使用 Docker Compose 一键启动服务
-sudo docker-compose up -d --build
+# 3. 使用 Docker 一键后台运行
+sudo docker compose up -d
 ```
 启动成功后，通过浏览器访问 `http://<服务器IP>:8080` 即可。
 
