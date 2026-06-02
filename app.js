@@ -1162,9 +1162,15 @@ function saveSettings() {
 
   const inputVal = parseFloat(dom.targetRate.value);
   if (!isNaN(inputVal) && inputVal > 0) {
+    const prevPair = state.settings.pairs[pairKey];
+    // 智能锁定价格保存时刻的实时价格作为进度条的 0% 起跑线
+    const currentBase = state.currentRate || inputVal;
+    const baseRate = (prevPair && prevPair.targetRate === inputVal) ? (prevPair.baseRate || currentBase) : currentBase;
+
     state.settings.pairs[pairKey] = {
       targetRate: inputVal,
-      direction: state.settings.direction || 'above'
+      direction: state.settings.direction || 'above',
+      baseRate: baseRate
     };
     state.settings.targetRate = inputVal;
   } else {
@@ -1401,10 +1407,15 @@ function updateTargetStatus() {
     dom.displayDiff.textContent = `${diffSign}${diff.toFixed(4)}`;
     dom.displayDiff.style.color = diff >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 
-    // 以历史起始值与目标值为起止区间计算监控进度
-    const rawBaseRate = state.history.length > 0
-      ? state.history[0].rate
-      : rate * (direction === 'above' ? 0.98 : 1.02);
+    // 智能读取价格设定时刻的基准起跑线价格，以获得高精确度的进度条指示
+    const pairKey = `${state.fromCurrency}_${state.toCurrency}`;
+    const spec = state.settings.pairs && state.settings.pairs[pairKey];
+    let rawBaseRate = spec && spec.baseRate;
+    if (!rawBaseRate) {
+      rawBaseRate = state.history.length > 0
+        ? state.history[0].rate
+        : rate * (direction === 'above' ? 0.98 : 1.02);
+    }
 
     const baseRate = isWfBase ? rawBaseRate * (1 - platform.fee / 100) + platform.offset : rawBaseRate;
 
