@@ -601,11 +601,54 @@ function onRatesReceived() {
       state.history.shift();
     }
   } else {
+    // 客户端单机模式自愈记录逻辑：
+    // 一次 API 响应会拉回所有 170+ 币种的最新汇率（state.allRates）。
+    // 因此，我们不仅记录当前的活动币对，还自动为用户配置的所有“到价提醒”币对在 localStorage 里记录一个实时点。
+    // 这做到了 100% 零额外网络请求/零额度消耗，同步积累多组监控任务的实时采样折线！
+    
+    // 1. 记录并保存当前活动币对的实时点
     state.history.push(entry);
     if (state.history.length > 200) {
       state.history.shift();
     }
     saveHistory();
+
+    // 2. 同步遍历并记录所有已添加提醒的币对，同步更新它们的历史
+    const pairs = state.settings.pairs;
+    if (pairs && typeof pairs === 'object') {
+      const activePairKey = `${fromCode}_${toCode}`;
+      for (let pairKey in pairs) {
+        if (pairKey === activePairKey) continue; // 活动对刚才已经单独记录了
+        const spec = pairs[pairKey];
+        if (!spec || !spec.targetRate) continue;
+
+        const parts = pairKey.split('_');
+        if (parts.length !== 2) continue;
+        const pFrom = parts[0];
+        const pTo = parts[1];
+
+        const uToFrom = state.allRates[pFrom];
+        const uToTo = state.allRates[pTo];
+        if (uToFrom && uToTo) {
+          const cRate = uToTo / uToFrom;
+          const pHistory = loadHistoryForPair(pFrom, pTo);
+          
+          // 限制频繁点写入，至少间隔 50 秒以上才记录，防止多次触发膨胀
+          const pLast = pHistory[pHistory.length - 1];
+          if (!pLast || (now - pLast.ts > 50000)) {
+            pHistory.push({
+              ts: now,
+              rate: cRate,
+              change: pLast ? cRate - pLast.rate : 0
+            });
+            if (pHistory.length > 200) {
+              pHistory.shift();
+            }
+            saveHistoryForPair(pFrom, pTo, pHistory);
+          }
+        }
+      }
+    }
   }
 
   // 更新所有关联 UI 块
