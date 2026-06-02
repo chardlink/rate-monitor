@@ -2142,17 +2142,30 @@ function showToast(icon, title, msg, duration = 4000) {
   toast.className = 'toast';
   toast.innerHTML = `
     <div class="toast-icon">${icon}</div>
-    <div class="toast-body">
+    <div class="toast-body" style="flex: 1; min-width: 0;">
       <div class="toast-title">${title}</div>
       <div class="toast-msg">${msg}</div>
     </div>
+    <button class="toast-close-btn" type="button" title="关闭">✕</button>
   `;
   container.appendChild(toast);
 
-  if (duration > 0) {
-    setTimeout(() => {
+  // 绑定关闭按钮事件
+  const closeBtn = toast.querySelector('.toast-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
       toast.style.animation = 'toastOut 0.35s ease forwards';
       setTimeout(() => toast.remove(), 350);
+    });
+  }
+
+  if (duration > 0) {
+    setTimeout(() => {
+      // 检查 toast 元素是否依然在 DOM 中再进行淡出移除
+      if (toast.parentNode) {
+        toast.style.animation = 'toastOut 0.35s ease forwards';
+        setTimeout(() => toast.remove(), 350);
+      }
     }, duration);
   }
 }
