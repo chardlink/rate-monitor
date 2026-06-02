@@ -17,3 +17,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .gemini/
+
+# 本地运行时生成的文件/文件夹
+node_modules/
+data/

@@ -1,11 +1,23 @@
-# 使用极轻量级的高性能 Nginx Alpine 镜像作为基底
-FROM nginx:alpine
+# 使用轻量级的 Node.js 18 Alpine 作为镜像底
+FROM node:18-alpine
 
-# 将当前目录下的所有静态网页文件复制到 Nginx 默认的 HTML 静态资源托管目录下
-COPY . /usr/share/nginx/html/
+# 设置容器工作目录
+WORKDIR /usr/src/app
 
-# 暴露 80 端口（Nginx 默认 HTTP 服务端口）
+# 复制 package.json 和 package-lock.json (若存在)
+COPY package*.json ./
+
+# 仅安装生产环境依赖
+RUN npm install --only=production
+
+# 复制当前目录下的所有静态网页及服务端源码
+COPY . .
+
+# 暴露 Express 默认服务端口
 EXPOSE 80
 
-# 容器启动时默认运行 Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# 挂载本地持久卷，确保汇率历史和配置文件重新启动时不丢失
+VOLUME ["/usr/src/app/data"]
+
+# 启动 Node 服务
+CMD ["npm", "start"]

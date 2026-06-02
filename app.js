@@ -8,6 +8,8 @@
 /* ===========================
    常量 & 配置
    =========================== */
+const isServerMode = window.location.protocol.startsWith('http');
+
 const CURRENCY_LIST = [
   { code: 'USD', name: '美元', flag: '🇺🇸', symbol: '$' },
   { code: 'CNH', name: '离岸人民币', flag: '🇨🇳', symbol: '¥' },
@@ -308,8 +310,93 @@ let lastDataDate = '';
 let lastApiName = '';
 let cnhIsApprox = false; // 标记 CNH 是否用 CNY 近似替代
 
+async function fetchHistoryFromServer(from, to) {
+  try {
+    const res = await fetch(`/api/history?from=${from}&to=${to}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json(); // [{ ts, rate }]
+    
+    // 计算 change 并构成 state.history
+    const mapped = [];
+    for (let i = 0; i < data.length; i++) {
+      const prevRate = i > 0 ? data[i - 1].rate : null;
+      mapped.push({
+        ts: data[i].ts,
+        rate: data[i].rate,
+        change: prevRate ? data[i].rate - prevRate : 0
+      });
+    }
+    return mapped;
+  } catch (err) {
+    console.warn('[服务端历史] 获取服务端历史数据失败, 降级使用本地存储:', err.message);
+    return loadHistoryForPair(from, to);
+  }
+}
+
 async function fetchRate() {
   setStatus('connecting');
+
+  if (isServerMode) {
+    try {
+      const res = await fetch('/api/rates', { cache: 'no-cache' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      if (data && data.rates && typeof data.rates === 'object') {
+        state.allRates = {};
+        for (let key in data.rates) {
+          state.allRates[key.toUpperCase()] = parseFloat(data.rates[key]);
+        }
+        state.allRates['USD'] = 1.0;
+
+        cnhIsApprox = false;
+        if (!state.allRates['CNH'] && state.allRates['CNY']) {
+          state.allRates['CNH'] = state.allRates['CNY'];
+          cnhIsApprox = true;
+        }
+        if (!state.allRates['CNY'] && state.allRates['CNH']) {
+          state.allRates['CNY'] = state.allRates['CNH'];
+        }
+
+        lastDataDate = data.date || '未知';
+        lastApiName = data.source || '服务端数据源';
+
+        saveRatesToCache();
+        setStatus('connected');
+
+        dom.activeApiBadge.textContent = lastApiName;
+        if (lastApiName.includes('Open Exchange Rates')) {
+          dom.activeApiBadge.className = 'badge badge-green';
+          dom.apiHint.innerHTML = `
+            🎉 <strong>已启用 Open Exchange Rates 官方源（通过服务端）</strong>。<br>
+            当前服务端正以每小时更新的频率获取真实 <strong>CNH 离岸人民币</strong> 汇率。
+          `;
+        } else {
+          dom.activeApiBadge.className = 'badge badge-amber';
+          dom.apiHint.innerHTML = `
+            当前服务端正使用免密钥的 <strong>${lastApiName}</strong>。<br>
+            您可以在下方配置您的 Open Exchange Rates APP ID 密钥，以启用官方每小时更新源。
+          `;
+        }
+
+        if (data.nextUpdate) {
+          dom.lastFetchBadge.textContent = `📅 ${lastDataDate}  ·  下次更新 ${data.nextUpdate}`;
+          dom.lastFetchBadge.title =
+            `数据来源: ${lastApiName} (服务端)\n数据时间: ${lastDataDate}\n下次更新: ${data.nextUpdate}\n` +
+            `来源说明: 服务端自动同步，支持 24 小时后台记录`;
+        } else {
+          dom.lastFetchBadge.textContent = `📅 数据日期 ${lastDataDate}`;
+          dom.lastFetchBadge.title =
+            `数据来源: ${lastApiName} (服务端)\n数据时间: ${lastDataDate}`;
+        }
+
+        onRatesReceived();
+        return;
+      }
+    } catch (err) {
+      console.warn('[服务端抓取失败] 正在自动降级到客户端直接获取:', err.message);
+    }
+  }
 
   const oerAppId = localStorage.getItem('rate_oer_app_id') || '';
   const APIS = [];
@@ -490,12 +577,23 @@ function onRatesReceived() {
     change: state.prevRate ? calculatedRate - state.prevRate : 0
   };
 
-  state.history.push(entry);
-  if (state.history.length > 200) {
-    state.history.shift();
+  if (isServerMode) {
+    // 服务端模式下，只在汇率有变动或超过一分钟时，才追加最新点，避免重复点膨胀
+    const lastEntry = state.history[state.history.length - 1];
+    if (!lastEntry || lastEntry.rate !== calculatedRate || (now - lastEntry.ts > 60000)) {
+      state.history.push(entry);
+    }
+    // 限制客户端最大缓存量为服务端历史容量
+    if (state.history.length > 1500) {
+      state.history.shift();
+    }
+  } else {
+    state.history.push(entry);
+    if (state.history.length > 200) {
+      state.history.shift();
+    }
+    saveHistory();
   }
-
-  saveHistory();
 
   // 更新所有关联 UI 块
   updateRateDisplay();
@@ -1018,11 +1116,33 @@ function saveApiSettings() {
 
   checkApiBudgetWarning();
 
-  if (newKey !== prevKey) {
-    fetchRate();
-    showToast('🔑', '密钥已更新', '新 API 密钥已保存，正在重新加载汇率...', 2500);
+  if (isServerMode) {
+    fetch('/api/settings/apikey', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ oerAppId: newKey })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        showToast('🔑', '密钥同步成功', 'API 密钥已同步到 NAS 后端，并在后台应用', 3000);
+        fetchRate();
+      } else {
+        showToast('⚠️', '同步失败', '服务端保存密钥失败，请检查连接', 3000);
+      }
+    })
+    .catch(err => {
+      showToast('⚠️', '同步异常', '无法连接到服务端以同步密钥', 3000);
+    });
   } else {
-    showToast('💾', '密钥已保存', 'API 密钥配置已保存', 2000);
+    if (newKey !== prevKey) {
+      fetchRate();
+      showToast('🔑', '密钥已更新', '新 API 密钥已保存，正在重新加载汇率...', 2500);
+    } else {
+      showToast('💾', '密钥已保存', 'API 密钥配置已保存', 2000);
+    }
   }
 }
 
@@ -1417,8 +1537,20 @@ function onPairChanged(from, to) {
   updateFlags();
 
   // 1. 动态加载币对历史并重刷表格
-  state.history = loadHistoryForPair(from, to);
-  renderHistoryTable();
+  if (isServerMode) {
+    fetchHistoryFromServer(from, to).then(history => {
+      if (state.fromCurrency === from && state.toCurrency === to) {
+        state.history = history;
+        renderHistoryTable();
+        updateChartStats();
+        drawChart();
+        updateTargetStatus();
+      }
+    });
+  } else {
+    state.history = loadHistoryForPair(from, to);
+    renderHistoryTable();
+  }
 
   // 2. 更新面板和标签
   dom.labelPair.textContent = `${from}/${to}`;
