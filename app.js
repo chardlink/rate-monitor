@@ -1836,6 +1836,13 @@ function bindEvents() {
       showToast('🗑️', '已删除平台', `平台 [${name}] 的配置已被彻底删除`, 2500);
     }
   });
+
+  // 禁用所有数字输入框滚动滚轮修改数值的默认浏览器行为，防止滚动页面时误触
+  document.querySelectorAll('input[type="number"]').forEach((input) => {
+    input.addEventListener('wheel', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+  });
 }
 
 function restartTimer() {
