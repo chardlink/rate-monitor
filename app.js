@@ -1307,8 +1307,8 @@ function loadSettings() {
   dom.btnBaseMarket.classList.toggle('active', !isWfBase);
 
   // 应用通用设置到 DOM
-  // 智能旧缓存校验迁移：若本地 localStorage 缓存了 60 或其他废弃秒数，自动安全迁移到 3600 秒（1小时）
-  if (state.settings.interval !== 900 && state.settings.interval !== 3600) {
+  // 智能旧缓存校验迁移：若本地 localStorage 缓存了废弃秒数，自动安全迁移到 3600 秒（1小时）
+  if (state.settings.interval !== 900 && state.settings.interval !== 3600 && state.settings.interval !== 7200 && state.settings.interval !== 86400) {
     state.settings.interval = 3600;
   }
   dom.refreshInterval.value = state.settings.interval;
