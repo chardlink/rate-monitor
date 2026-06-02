@@ -1784,10 +1784,10 @@ function onModalPairChanged() {
   const toCode = dom.modalToCurrency.value;
 
   // 1. 更新模态框标题和提示标签
-  dom.modalAlertTitle.textContent = dom.modalAlertTitle.textContent.startsWith('✏️') 
+  const isEdit = state.modalMode === 'edit';
+  dom.modalAlertTitle.textContent = isEdit
     ? `✏️ 编辑到价提醒 (${fromCode}/${toCode})` 
     : `➕ 新增到价提醒 (${fromCode}/${toCode})`;
-  dom.labelPair.textContent = `${fromCode}/${toCode}`;
 
   // 2. 更新输入框前缀符号
   const toCurr = CURRENCY_LIST.find((c) => c.code === toCode) || { symbol: '¥' };
@@ -1803,9 +1803,23 @@ function onModalPairChanged() {
   } else {
     state.modalCurrentRate = null;
   }
+
+  // 4. 更新 label-pair 展示，在旁边直观展示当前的本地汇率，免去额外网络查询
+  if (state.modalCurrentRate) {
+    dom.labelPair.innerHTML = `${fromCode}/${toCode} <span style="font-weight: normal; opacity: 0.8; margin-left: 8px;">当前本地汇率: <strong style="color: var(--accent-cyan); font-family: 'JetBrains Mono', monospace;">${state.modalCurrentRate.toFixed(4)}</strong></span>`;
+  } else {
+    dom.labelPair.textContent = `${fromCode}/${toCode}`;
+  }
+
+  // 5. 如果是新增模式，币种改变时默认将当前计算出的汇率填入输入框
+  if (state.modalMode === 'add' && state.modalCurrentRate) {
+    dom.targetRate.value = state.modalCurrentRate.toFixed(4);
+  }
 }
 
 function openAlertsModal(mode = 'add') {
+  state.modalMode = mode;
+  
   const from = state.fromCurrency;
   const to = state.toCurrency;
   
@@ -1822,7 +1836,6 @@ function openAlertsModal(mode = 'add') {
   if (dom.btnBaseWf) dom.btnBaseWf.classList.toggle('active', alertBase === 'wf');
 
   if (mode === 'add') {
-    dom.targetRate.value = state.currentRate ? state.currentRate.toFixed(4) : '';
     state.settings.direction = 'above';
     dom.btnAbove.classList.add('active');
     dom.btnBelow.classList.remove('active');
