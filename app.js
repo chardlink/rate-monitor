@@ -189,11 +189,12 @@ const dom = {
   btnAddPlatform: $('btn-add-platform'),
   btnDeletePlatform: $('btn-delete-platform'),
 
-  // 管理多组提醒 Modal DOM 映射
-  btnManageAlerts: $('btn-manage-alerts'),
+  // 提醒配置与弹窗 DOM 映射
+  btnAddAlertTrigger: $('btn-add-alert-trigger'),
+  panelAlertsList: $('panel-alerts-list'),
   alertsModal: $('alerts-modal'),
   closeAlertsModal: $('close-alerts-modal'),
-  alertsListContainer: $('alerts-list-container')
+  modalAlertTitle: $('modal-alert-title')
 };
 
 /* ===========================
@@ -1195,9 +1196,11 @@ function saveSettings() {
   const inputVal = parseFloat(dom.targetRate.value);
   if (!isNaN(inputVal) && inputVal > 0) {
     const prevPair = state.settings.pairs[pairKey];
-    // 智能锁定价格保存时刻的实时价格作为进度条的 0% 起跑线
+    // 智能锁定价格保存时刻的实时价格作为进度条 of 0% 起跑线
     const currentBase = state.currentRate || inputVal;
-    const baseRate = (prevPair && prevPair.targetRate === inputVal) ? (prevPair.baseRate || currentBase) : currentBase;
+    const baseRate = (prevPair && prevPair.targetRate === inputVal && prevPair.direction === state.settings.direction) 
+      ? (prevPair.baseRate || currentBase) 
+      : currentBase;
 
     state.settings.pairs[pairKey] = {
       targetRate: inputVal,
@@ -1226,7 +1229,11 @@ function saveSettings() {
   drawChart();
   checkApiBudgetWarning();
 
-  showToast('💾', '配置已保存', `刷新时间已生效：每 ${state.settings.interval} 秒更新`, 2500);
+  // 自动重新渲染右侧提醒列表并关闭配置弹窗
+  renderAlertsList();
+  closeAlertsModal();
+
+  showToast('💾', '配置已保存', '到价提醒规则设置已保存并开启监控', 2500);
 }
 
 function loadSettings() {
@@ -1296,6 +1303,7 @@ function loadSettings() {
   dom.toCurrency.value = to;
 
   onPairChanged(from, to);
+  renderAlertsList();
 }
 
 function loadSettingsForPair(from, to) {
@@ -1644,16 +1652,16 @@ function syncPlatformEditor() {
    管理多组提醒的渲染与删除逻辑
    =========================== */
 function renderAlertsList() {
-  const container = dom.alertsListContainer;
+  const container = dom.panelAlertsList;
   if (!container) return;
   container.innerHTML = '';
 
   const pairs = state.settings.pairs;
   if (!pairs || Object.keys(pairs).length === 0) {
     container.innerHTML = `
-      <div class="no-alerts-hint">
+      <div class="no-alerts-hint" style="padding: 25px 10px;">
         📂 暂无任何监控提醒规则。<br>
-        <span style="font-size:0.78rem; opacity:0.75;">您可以在右侧配置面板中设定汇率数值并点击“保存当前设置”来进行添加。</span>
+        <span style="font-size:0.75rem; opacity:0.75; display:block; margin-top:4px;">您可以点击下方按钮添加新监控。</span>
       </div>
     `;
     return;
@@ -1677,30 +1685,33 @@ function renderAlertsList() {
     card.dataset.pair = pairKey;
     card.dataset.from = fromCode;
     card.dataset.to = toCode;
+    card.style.padding = '8px 10px';
+    card.style.marginBottom = '6px';
 
     const dirBadge = spec.direction === 'above' 
-      ? '<span class="alert-item-badge above">📈 高于目标时提醒</span>' 
-      : '<span class="alert-item-badge below">📉 低于目标时提醒</span>';
+      ? '<span class="alert-item-badge above" style="padding:1px 4px; font-size:0.65rem;">📈 高于</span>' 
+      : '<span class="alert-item-badge below" style="padding:1px 4px; font-size:0.65rem;">📉 低于</span>';
 
-    const baseName = isWfBase ? `${platform.name}估算价` : '市场参考价';
+    const baseName = isWfBase ? `${platform.name}估算` : '市场价';
 
     card.innerHTML = `
-      <div class="alert-item-left">
-        <span class="alert-item-pair">${fromCode} → ${toCode}</span>
-        <div class="alert-item-details">
+      <div class="alert-item-left" style="gap:2px;">
+        <span class="alert-item-pair" style="font-size:0.85rem;">${fromCode} → ${toCode}</span>
+        <div class="alert-item-details" style="font-size:0.7rem; gap:4px;">
           ${dirBadge}
           <span style="color:var(--accent-cyan); font-weight:600;">🎯 ${spec.targetRate.toFixed(4)}</span>
-          <span style="opacity:0.65;">(${baseName})</span>
+          <span style="opacity:0.6; font-size:0.68rem;">(${baseName})</span>
         </div>
       </div>
-      <button class="btn-delete-alert" data-pair="${pairKey}" type="button">🗑️ 删除</button>
+      <div style="display: flex; gap: 4px;">
+        <button class="btn-delete-alert btn-edit-alert" data-pair="${pairKey}" style="background:rgba(124,58,237,0.08); border-color:rgba(124,58,237,0.25); color:var(--accent-purple); padding:4px 8px; font-size:0.68rem;" type="button">✏️ 编辑</button>
+        <button class="btn-delete-alert" data-pair="${pairKey}" style="padding:4px 8px; font-size:0.68rem;" type="button">🗑️</button>
+      </div>
     `;
 
-    // 绑定卡片主体点击事件：点击切换当前币种对
+    // 点击卡片主体：载入当前币对并高亮图表
     card.addEventListener('click', (e) => {
-      // 避免点击删除按钮时触发切换
-      if (e.target.classList.contains('btn-delete-alert')) return;
-
+      if (e.target.classList.contains('btn-delete-alert') || e.target.classList.contains('btn-edit-alert')) return;
       const from = card.dataset.from;
       const to = card.dataset.to;
 
@@ -1708,13 +1719,26 @@ function renderAlertsList() {
       dom.toCurrency.value = to;
 
       onPairChanged(from, to);
-      closeAlertsModal();
-
-      showToast('🔄', '监控对已载入', `已自动切换当前面板为 ${from} → ${to}`, 2500);
+      showToast('🔄', '图表监控对已载入', `已切换折线走势图为 ${from} → ${to}`, 2500);
     });
 
-    // 绑定删除按钮点击事件
-    card.querySelector('.btn-delete-alert').addEventListener('click', (e) => {
+    // 编辑按钮：打开弹窗进行编辑修改
+    card.querySelector('.btn-edit-alert').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const from = card.dataset.from;
+      const to = card.dataset.to;
+
+      // 切换主页面选择
+      dom.fromCurrency.value = from;
+      dom.toCurrency.value = to;
+      onPairChanged(from, to);
+
+      // 加载并打开编辑弹窗
+      openAlertsModal('edit');
+    });
+
+    // 删除按钮
+    card.querySelector('.btn-delete-alert:not(.btn-edit-alert)').addEventListener('click', (e) => {
       e.stopPropagation();
       const key = e.target.dataset.pair;
       deleteAlertPair(key);
@@ -1726,34 +1750,45 @@ function renderAlertsList() {
 
 function deleteAlertPair(pairKey) {
   if (confirm(`确定要彻底删除 [${pairKey.replace('_', ' → ')}] 的到价提醒规则吗？`)) {
-    // 1. 从 pairs 对象中删除
     if (state.settings.pairs) {
       delete state.settings.pairs[pairKey];
     }
 
-    // 2. 如果删除的正好是当前主面板编辑 of 币对，同步更新主面板参数
     const currentPairKey = `${state.fromCurrency}_${state.toCurrency}`;
     if (currentPairKey === pairKey) {
       dom.targetRate.value = '';
       state.settings.targetRate = null;
     }
 
-    // 3. 保存设置数据
     saveSettingsDataOnly();
-
-    // 4. 重绘并更新状态
     updateTargetStatus();
     drawChart();
-
-    // 5. 重新渲染列表
     renderAlertsList();
 
     showToast('🗑️', '提醒已删除', '该汇率提醒规则已被彻底删除', 2500);
   }
 }
 
-function openAlertsModal() {
-  renderAlertsList();
+function openAlertsModal(mode = 'add') {
+  const from = state.fromCurrency;
+  const to = state.toCurrency;
+  
+  // 同步提醒依据的选中状态
+  const alertBase = state.settings.alertBase || 'wf';
+  if (dom.btnBaseMarket) dom.btnBaseMarket.classList.toggle('active', alertBase === 'market');
+  if (dom.btnBaseWf) dom.btnBaseWf.classList.toggle('active', alertBase === 'wf');
+
+  if (mode === 'add') {
+    dom.modalAlertTitle.textContent = `➕ 新增到价提醒 (${from}/${to})`;
+    dom.targetRate.value = state.currentRate ? state.currentRate.toFixed(4) : '';
+    state.settings.direction = 'above';
+    dom.btnAbove.classList.add('active');
+    dom.btnBelow.classList.remove('active');
+  } else {
+    dom.modalAlertTitle.textContent = `✏️ 编辑到价提醒 (${from}/${to})`;
+    loadSettingsForPair(from, to);
+  }
+
   dom.alertsModal.classList.remove('hidden');
 }
 
@@ -2004,8 +2039,8 @@ function bindEvents() {
   });
 
   // 管理多组提醒 Modal 事件绑定
-  if (dom.btnManageAlerts) {
-    dom.btnManageAlerts.addEventListener('click', openAlertsModal);
+  if (dom.btnAddAlertTrigger) {
+    dom.btnAddAlertTrigger.addEventListener('click', () => openAlertsModal('add'));
   }
   if (dom.closeAlertsModal) {
     dom.closeAlertsModal.addEventListener('click', closeAlertsModal);
@@ -2018,10 +2053,11 @@ function bindEvents() {
     });
   }
 
-  // 禁用所有数字输入框滚动滚轮修改数值的默认浏览器行为，防止滚动页面时误触
+  // 禁用所有数字输入框滚动滚轮修改数值的默认浏览器行为，并失去焦点防止滚动误触
   document.querySelectorAll('input[type="number"]').forEach((input) => {
     input.addEventListener('wheel', (e) => {
       e.preventDefault();
+      input.blur();
     }, { passive: false });
   });
 }

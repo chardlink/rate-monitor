@@ -294,6 +294,33 @@
           <button class="btn-save" id="btn-save-api" type="button" style="margin-top: 10px; padding: 10px; font-size: 0.82rem; height: 38px;">💾 保存并应用密钥</button>
         </div>
 
+        <!-- ⏱️ 系统刷新配置 -->
+        <div class="panel refresh-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">⏱️ 系统刷新配置</h2>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; align-items: end;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label>数据刷新间隔</label>
+              <select id="refresh-interval" class="rate-select" style="border:none;height:38px;padding-left:11px;">
+                <option value="30">30 秒</option>
+                <option value="60" selected>1 分钟</option>
+                <option value="300">5 分钟</option>
+                <option value="600">10 分钟</option>
+                <option value="3600">1 小时 (推荐 OER 源)</option>
+                <option value="7200">2 小时</option>
+                <option value="86400">24 小时</option>
+              </select>
+            </div>
+            <div class="input-group checkbox-group" style="margin-bottom: 0; padding-bottom: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="sound-toggle-check" />
+                <span style="font-size: 0.82rem;">启用提示音</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <!-- 平台结汇配置 -->
         <div class="panel platform-panel">
           <div class="panel-header">
@@ -342,7 +369,7 @@
           </div>
         </div>
 
-        <!-- 提醒设置 -->
+        <!-- 到价提醒 -->
         <div class="panel alert-panel">
           <div class="panel-header">
             <h2 class="panel-title">🔔 到价提醒</h2>
@@ -351,69 +378,10 @@
               <span class="toggle-slider"></span>
             </label>
           </div>
-
-          <div class="alert-type-selector">
-            <button class="type-btn active" id="btn-above" data-type="above">
-              <span class="type-icon">📈</span>
-              <span>高于目标时提醒</span>
-            </button>
-            <button class="type-btn" id="btn-below" data-type="below">
-              <span class="type-icon">📉</span>
-              <span>低于目标时提醒</span>
-            </button>
+          <div class="alerts-list-container" id="panel-alerts-list" style="max-height: 280px; overflow-y: auto; margin-bottom: 12px; border: 1px dashed rgba(255,255,255,0.05); border-radius: 8px; padding: 4px;">
+            <!-- 动态填充已设监控对列表 -->
           </div>
-
-          <div class="input-group">
-            <label>目标汇率（<span id="label-pair">USD/CNH</span>）</label>
-            <div class="input-wrapper">
-              <span class="input-prefix" id="target-prefix">¥</span>
-              <input type="number" id="target-rate" class="rate-input" placeholder="例如：7.25" step="0.001" />
-              <button class="input-suffix-btn" id="use-current-btn">当前值</button>
-            </div>
-          </div>
-
-          <div class="quick-targets">
-            <span class="quick-label">快捷：</span>
-            <button class="quick-btn" data-offset="+0.005">+0.005</button>
-            <button class="quick-btn" data-offset="+0.01">+0.01</button>
-            <button class="quick-btn" data-offset="+0.02">+0.02</button>
-            <button class="quick-btn" data-offset="+0.05">+0.05</button>
-            <button class="quick-btn" data-offset="-0.01">-0.01</button>
-            <button class="quick-btn" data-offset="-0.02">-0.02</button>
-          </div>
-
-          <div class="input-group">
-            <label>刷新间隔</label>
-            <select id="refresh-interval" class="rate-select">
-              <option value="30">30 秒</option>
-              <option value="60" selected>1 分钟</option>
-              <option value="300">5 分钟</option>
-              <option value="600">10 分钟</option>
-              <option value="3600">1 小时 (推荐 OER 源)</option>
-              <option value="7200">2 小时</option>
-              <option value="86400">24 小时</option>
-            </select>
-          </div>
-
-          <div class="input-group">
-            <label>提醒判定依据</label>
-            <div class="alert-base-selector">
-              <button class="base-btn active" id="btn-base-market" type="button">市场参考价</button>
-              <button class="base-btn" id="btn-base-wf" type="button">平台估算价</button>
-            </div>
-          </div>
-
-          <div class="input-group checkbox-group">
-            <label>
-              <input type="checkbox" id="sound-toggle-check" />
-              <span>启用提示音</span>
-            </label>
-          </div>
-
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-save" id="save-settings" style="flex: 2;">💾 保存当前设置</button>
-            <button class="btn-save" id="btn-manage-alerts" style="flex: 1.1; background: rgba(124, 58, 237, 0.12); border: 1px solid var(--accent-purple); color: var(--accent-purple);" type="button">📂 管理多组</button>
-          </div>
+          <button class="btn-save" id="btn-add-alert-trigger" style="background: linear-gradient(135deg, #7c3aed, #3b82f6); border: none; color: #fff; height: 40px; font-weight: 600;" type="button">➕ 添加新到价提醒</button>
         </div>
 
       </div>
@@ -454,17 +422,58 @@
     </footer>
   </div>
 
-  <!-- 管理多组提醒 Modal 弹窗 -->
+  <!-- 新增/编辑提醒 Modal 弹窗 -->
   <div id="alerts-modal" class="modal-overlay hidden">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 440px;">
       <div class="modal-header">
-        <h3 class="modal-title">📂 已设监控提醒列表</h3>
+        <h3 class="modal-title" id="modal-alert-title">➕ 新增到价提醒</h3>
         <button id="close-alerts-modal" class="modal-close-btn">✕</button>
       </div>
-      <div class="modal-body">
-        <div class="alerts-list-container" id="alerts-list-container">
-          <!-- 动态填充 -->
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+        
+        <!-- 提醒类型选择 -->
+        <div class="alert-type-selector" style="margin-bottom: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button class="type-btn active" id="btn-above" data-type="above" style="padding: 10px 0; font-size: 0.8rem; border-radius: 8px;" type="button">
+            <span class="type-icon">📈</span>
+            <span>高于目标时提醒</span>
+          </button>
+          <button class="type-btn" id="btn-below" data-type="below" style="padding: 10px 0; font-size: 0.8rem; border-radius: 8px;" type="button">
+            <span class="type-icon">📉</span>
+            <span>低于目标时提醒</span>
+          </button>
         </div>
+
+        <!-- 目标汇率输入 -->
+        <div class="input-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.75rem;">目标提醒汇率（<span id="label-pair" style="font-weight:600; color:var(--accent-cyan);">USD/CNH</span>）</label>
+          <div class="input-wrapper" style="height: 38px;">
+            <span class="input-prefix" id="target-prefix">¥</span>
+            <input type="number" id="target-rate" class="rate-input" placeholder="例如：7.25" step="0.001" style="height: 38px;" />
+            <button class="input-suffix-btn" id="use-current-btn" type="button" style="height: 38px;">当前值</button>
+          </div>
+        </div>
+
+        <!-- 快捷微调 -->
+        <div class="quick-targets" style="margin-top: -4px; margin-bottom: 0; display: flex; gap: 6px; flex-wrap: wrap;">
+          <span class="quick-label" style="font-size: 0.72rem; display: flex; align-items: center;">微调：</span>
+          <button class="quick-btn" data-offset="+0.005" type="button" style="padding: 4px 8px; font-size: 0.72rem;">+0.005</button>
+          <button class="quick-btn" data-offset="+0.01" type="button" style="padding: 4px 8px; font-size: 0.72rem;">+0.01</button>
+          <button class="quick-btn" data-offset="+0.02" type="button" style="padding: 4px 8px; font-size: 0.72rem;">+0.02</button>
+          <button class="quick-btn" data-offset="-0.01" type="button" style="padding: 4px 8px; font-size: 0.72rem;">-0.01</button>
+          <button class="quick-btn" data-offset="-0.02" type="button" style="padding: 4px 8px; font-size: 0.72rem;">-0.02</button>
+        </div>
+
+        <!-- 判定依据选择 -->
+        <div class="input-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.75rem;">提醒判定依据</label>
+          <div class="alert-base-selector" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button class="base-btn active" id="btn-base-market" type="button" style="padding: 8px 0; font-size: 0.75rem;">市场参考价</button>
+            <button class="base-btn" id="btn-base-wf" type="button" style="padding: 8px 0; font-size: 0.75rem;">平台估算价</button>
+          </div>
+        </div>
+
+        <!-- 确认保存按钮 -->
+        <button class="btn-save" id="save-settings" style="margin-top: 10px; height: 40px; font-weight: 600;" type="button">💾 确认保存并开启监控</button>
       </div>
     </div>
   </div>
