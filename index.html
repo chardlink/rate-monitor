@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>汇率实时提醒 | 万里汇结汇助手</title>
+  <meta name="description" content="实时监控多币种汇率（含离岸人民币CNH），当汇率达到目标价位时立即提醒，帮助跨境电商把握最佳结汇时机。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 背景粒子 -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- 顶部提醒横幅 -->
+  <div id="alert-banner" class="alert-banner hidden">
+    <div class="alert-icon" id="alert-icon">🎯</div>
+    <div class="alert-content">
+      <strong id="alert-title">汇率已达目标！</strong>
+      <span id="alert-msg"></span>
+    </div>
+    <button id="alert-close" class="alert-close" title="关闭">✕</button>
+  </div>
+
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div class="app-container">
+
+    <!-- ===== 页头 ===== -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <circle cx="13" cy="13" r="12" stroke="url(#lg)" stroke-width="1.8"/>
+              <path d="M7 13c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6" stroke="url(#lg)" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M13 9v8M10 12l3-3 3 3" stroke="url(#lg)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <defs>
+                <linearGradient id="lg" x1="0" y1="0" x2="26" y2="26">
+                  <stop offset="0%" stop-color="#6ee7f7"/>
+                  <stop offset="100%" stop-color="#7c3aed"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <span class="logo-text">汇率提醒助手</span>
+        </div>
+        <div class="subtitle">跨境电商结汇最佳时机捕捉 · 支持离岸人民币 CNH</div>
+      </div>
+      <div class="header-right">
+        <div class="status-indicator" id="status-indicator">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">未连接</span>
+        </div>
+        <div class="last-fetch-badge" id="last-fetch-badge">--</div>
+      </div>
+    </header>
+
+    <!-- ===== 主汇率英雄区 ===== -->
+    <section class="rate-hero">
+      <div class="rate-hero-bg"></div>
+
+      <!-- 币种选择器 -->
+      <div class="pair-selector-row">
+        <div class="currency-selector-wrap">
+          <label class="selector-label">转出</label>
+          <div class="currency-select-box" id="from-box">
+            <span class="cs-flag" id="from-flag">🇺🇸</span>
+            <select id="from-currency" class="cs-select">
+              <!-- 动态填充 -->
+            </select>
+            <span class="cs-arrow">▾</span>
+          </div>
+        </div>
+
+        <button class="swap-btn" id="swap-btn" title="互换币种">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 7h14M14 4l3 3-3 3M17 13H3M6 10l-3 3 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <div class="currency-selector-wrap">
+          <label class="selector-label">转入</label>
+          <div class="currency-select-box" id="to-box">
+            <span class="cs-flag" id="to-flag">🇨🇳</span>
+            <select id="to-currency" class="cs-select">
+              <!-- 动态填充 -->
+            </select>
+            <span class="cs-arrow">▾</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 汇率大数字 -->
+      <div class="rate-display-wrapper">
+        <div class="rate-main" id="rate-main">--</div>
+        <div class="rate-change-badge" id="rate-change-badge">
+          <span id="rate-change-icon">—</span>
+          <span id="rate-change-value">0.0000</span>
+          <span id="rate-change-pct">(0.000%)</span>
+        </div>
+      </div>
+
+      <div class="rate-meta">
+        <span>1 <span id="rate-meta-from">USD</span> = </span>
+        <strong id="rate-meta-value">--</strong>
+        <span id="rate-meta-to"> CNH</span>
+        <span class="divider">|</span>
+        <span id="last-update-time">--</span> 更新
+      </div>
+
+      <!-- 平台估算结汇价 -->
+      <div id="wf-estimate-pill" class="wf-estimate-pill hidden">
+        <span class="wf-pill-icon">💸</span>
+        <span><span id="wf-estimate-name">万里汇</span>估算结汇价: <strong id="wf-estimate-value">--</strong> <span id="wf-estimate-to">CNH</span> (点差 <span id="wf-estimate-fee">0.38</span>%, 偏移 <span id="wf-estimate-offset">-0.0037</span>)</span>
+      </div>
+
+      <!-- CNH / CNY 说明 -->
+      <div id="cnh-note" class="cnh-note hidden">
+        <span class="cnh-badge">CNH 离岸人民币</span>
+        <span>万里汇等跨境收款平台使用<strong>离岸人民币 CNH</strong>，与在岸 CNY 存在约 ±0.1%~0.3% 价差</span>
+      </div>
+    </section>
+
+    <!-- ===== 主内容网格 ===== -->
+    <div class="main-grid">
+
+      <!-- 左列 -->
+      <div class="left-col">
+
+        <!-- 走势图 -->
+        <div class="panel chart-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">📈 汇率走势</h2>
+            <div class="time-range-tabs">
+              <button class="tab-btn active" data-range="1h">1小时</button>
+              <button class="tab-btn" data-range="6h">6小时</button>
+              <button class="tab-btn" data-range="24h">24小时</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="rate-chart"></canvas>
+            <div class="chart-tooltip" id="chart-tooltip"></div>
+          </div>
+          <div class="chart-stats">
+            <div class="stat-item">
+              <span class="stat-label">最高</span>
+              <span class="stat-value high" id="stat-high">--</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">最低</span>
+              <span class="stat-value low" id="stat-low">--</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">均值</span>
+              <span class="stat-value avg" id="stat-avg">--</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">采样</span>
+              <span class="stat-value" id="stat-count">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 多货币行情板 -->
+        <div class="panel board-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">🌍 多货币行情</h2>
+            <div class="board-base-wrap">
+              <span class="board-base-label">基准：</span>
+              <select id="board-base" class="board-base-select">
+                <!-- 动态填充 -->
+              </select>
+            </div>
+          </div>
+          <div class="rate-board" id="rate-board">
+            <div class="board-loading">正在加载行情...</div>
+          </div>
+        </div>
+
+        <!-- 监控与换算双并列栏 -->
+        <div class="left-bottom-row">
+          <!-- 监控状态 -->
+          <div class="panel target-panel">
+            <div class="panel-header">
+              <h2 class="panel-title">🎯 监控状态</h2>
+            </div>
+            <div class="target-rows">
+              <div class="target-row">
+                <span class="target-label">监控币对</span>
+                <span class="target-value" id="display-pair">USD → CNH</span>
+              </div>
+              <div class="target-row">
+                <span class="target-label">目标汇率</span>
+                <span class="target-value" id="display-target">未设置</span>
+              </div>
+              <div class="target-row">
+                <span class="target-label">提醒方向</span>
+                <span class="target-value" id="display-direction">--</span>
+              </div>
+              <div class="target-row">
+                <span class="target-label">当前差值</span>
+                <span class="target-value" id="display-diff">--</span>
+              </div>
+              <div class="target-row">
+                <span class="target-label">监控状态</span>
+                <span class="target-value" id="display-monitor-status">
+                  <span class="badge badge-green">运行中</span>
+                </span>
+              </div>
+            </div>
+            <div class="progress-section">
+              <div class="progress-label">
+                <span>距目标进度</span>
+                <span id="progress-pct">--</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-fill"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 货币换算器 -->
+          <div class="panel calc-panel">
+            <div class="panel-header">
+              <h2 class="panel-title">🧮 货币换算</h2>
+              <button class="btn-calc-swap" id="calc-swap-btn" title="互换">⇄</button>
+            </div>
+            <div class="calc-content">
+              <div class="calc-row">
+                <div class="calc-input-group">
+                  <div class="calc-currency-select-wrap">
+                    <span class="calc-flag" id="calc-from-flag">🇺🇸</span>
+                    <select id="calc-from" class="calc-currency-select"></select>
+                  </div>
+                  <div class="calc-input-wrapper">
+                    <input type="number" id="calc-amount-from" class="calc-input" placeholder="输入金额" min="0" step="0.01" />
+                  </div>
+                </div>
+              </div>
+              <div class="calc-equals-row">
+                <div class="calc-equal-sign">=</div>
+                <div class="calc-rate-display" id="calc-rate-display">--</div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-input-group">
+                  <div class="calc-currency-select-wrap">
+                    <span class="calc-flag" id="calc-to-flag">🇨🇳</span>
+                    <select id="calc-to" class="calc-currency-select"></select>
+                  </div>
+                  <div class="calc-input-wrapper">
+                    <input type="number" id="calc-amount-to" class="calc-input" placeholder="换算结果" min="0" step="0.01" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 右列 -->
+      <div class="right-col">
+
+        <!-- API 与数据源配置 -->
+        <div class="panel api-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">⚙️ API 与数据源</h2>
+            <span class="badge badge-amber" id="active-api-badge">连接中</span>
+          </div>
+          
+          <div class="input-group">
+            <label>Open Exchange Rates APP ID</label>
+            <div class="input-wrapper">
+              <span class="input-prefix">🔑</span>
+              <input type="password" id="api-key-input" class="rate-input" placeholder="输入 APP_ID (免密钥则留空)" />
+              <button class="input-suffix-btn" id="toggle-key-visibility" style="border-left:1px solid var(--border);" title="显示/隐藏">👁️</button>
+            </div>
+          </div>
+          
+          <div class="api-hint" id="api-hint">
+            未配置密钥，正使用免密钥的备用源（每日更新）。<br>
+            配置密钥后可启用 <strong>Open Exchange Rates</strong> 获得每小时更新的真实 CNH 离岸价。<a href="https://openexchangerates.org/signup/free" target="_blank" rel="noopener" style="color:var(--accent-cyan);text-decoration:none;">点此免费注册 ➔</a>
+          </div>
+
+          <div class="api-warning hidden" id="api-budget-warning">
+            ⚠️ <strong>额度警报：</strong>当前刷新间隔较短。免费版每月仅 1000 次请求（约每小时 1.3 次），建议将刷新间隔调整为 <strong>1 小时</strong>，否则额度将在数天内耗尽。
+          </div>
+
+          <button class="btn-save" id="btn-save-api" type="button" style="margin-top: 10px; padding: 10px; font-size: 0.82rem; height: 38px;">💾 保存并应用密钥</button>
+        </div>
+
+        <!-- 平台结汇配置 -->
+        <div class="panel platform-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">🏦 平台结汇配置</h2>
+          </div>
+          
+          <div class="input-group">
+            <label>选择当前激活平台</label>
+            <div class="input-wrapper">
+              <select id="active-platform-select" class="rate-select" style="border:none;height:38px;padding-left:11px;">
+                <!-- 动态填充 -->
+              </select>
+            </div>
+          </div>
+
+          <!-- 平台属性编辑区 -->
+          <div class="platform-editor" style="border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <div class="input-group" style="margin-bottom:0;">
+                <label style="font-size:0.68rem;">平台名称</label>
+                <div class="input-wrapper">
+                  <input type="text" id="platform-name-input" class="rate-input" style="height:34px;font-size:0.82rem;" placeholder="例如：寻汇" />
+                </div>
+              </div>
+              <div class="input-group" style="margin-bottom:0;">
+                <label style="font-size:0.68rem;">点差扣费 (%)</label>
+                <div class="input-wrapper">
+                  <input type="number" id="platform-fee-input" class="rate-input" style="height:34px;font-size:0.82rem;" placeholder="例如：0.3" step="0.01" />
+                </div>
+              </div>
+            </div>
+
+            <div class="input-group" style="margin-bottom:10px;">
+              <label style="font-size:0.68rem;">估算偏差校准 (手动微调偏移量)</label>
+              <div class="input-wrapper">
+                <span class="input-prefix" style="height:34px;font-size:0.75rem;">±</span>
+                <input type="number" id="platform-offset-input" class="rate-input" style="height:34px;font-size:0.82rem;" placeholder="例如：-0.0037" step="0.0001" />
+              </div>
+            </div>
+
+            <div class="platform-actions" style="display: flex; gap: 6px;">
+              <button class="quick-btn" id="btn-save-platform" type="button" style="flex:1;padding:8px 0;font-size:0.72rem;background:rgba(110,231,247,0.08);border-color:var(--accent-cyan);color:var(--accent-cyan);">💾 保存更改</button>
+              <button class="quick-btn" id="btn-add-platform" type="button" style="flex:1;padding:8px 0;font-size:0.72rem;background:rgba(34,197,94,0.08);border-color:var(--accent-green);color:var(--accent-green);">➕ 新增平台</button>
+              <button class="quick-btn" id="btn-delete-platform" type="button" style="padding:8px 10px;font-size:0.72rem;background:rgba(239,68,68,0.08);border-color:var(--accent-red);color:var(--accent-red);" title="删除当前平台">🗑️</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 提醒设置 -->
+        <div class="panel alert-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">🔔 到价提醒</h2>
+            <label class="toggle-switch">
+              <input type="checkbox" id="monitor-toggle" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="alert-type-selector">
+            <button class="type-btn active" id="btn-above" data-type="above">
+              <span class="type-icon">📈</span>
+              <span>高于目标时提醒</span>
+            </button>
+            <button class="type-btn" id="btn-below" data-type="below">
+              <span class="type-icon">📉</span>
+              <span>低于目标时提醒</span>
+            </button>
+          </div>
+
+          <div class="input-group">
+            <label>目标汇率（<span id="label-pair">USD/CNH</span>）</label>
+            <div class="input-wrapper">
+              <span class="input-prefix" id="target-prefix">¥</span>
+              <input type="number" id="target-rate" class="rate-input" placeholder="例如：7.25" step="0.001" />
+              <button class="input-suffix-btn" id="use-current-btn">当前值</button>
+            </div>
+          </div>
+
+          <div class="quick-targets">
+            <span class="quick-label">快捷：</span>
+            <button class="quick-btn" data-offset="+0.005">+0.005</button>
+            <button class="quick-btn" data-offset="+0.01">+0.01</button>
+            <button class="quick-btn" data-offset="+0.02">+0.02</button>
+            <button class="quick-btn" data-offset="+0.05">+0.05</button>
+            <button class="quick-btn" data-offset="-0.01">-0.01</button>
+            <button class="quick-btn" data-offset="-0.02">-0.02</button>
+          </div>
+
+          <div class="input-group">
+            <label>刷新间隔</label>
+            <select id="refresh-interval" class="rate-select">
+              <option value="30">30 秒</option>
+              <option value="60" selected>1 分钟</option>
+              <option value="300">5 分钟</option>
+              <option value="600">10 分钟</option>
+              <option value="3600">1 小时 (推荐 OER 源)</option>
+              <option value="7200">2 小时</option>
+              <option value="86400">24 小时</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label>提醒判定依据</label>
+            <div class="alert-base-selector">
+              <button class="base-btn active" id="btn-base-market" type="button">市场参考价</button>
+              <button class="base-btn" id="btn-base-wf" type="button">平台估算价</button>
+            </div>
+          </div>
+
+          <div class="input-group checkbox-group">
+            <label>
+              <input type="checkbox" id="sound-toggle-check" />
+              <span>启用提示音</span>
+            </label>
+          </div>
+
+          <button class="btn-save" id="save-settings">💾 保存设置</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===== 汇率日志 ===== -->
+    <div class="panel history-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">📋 汇率日志 <span class="history-pair-label" id="history-pair-label">USD/CNH</span></h2>
+        <button class="btn-clear" id="clear-history">清空</button>
+      </div>
+      <div class="history-table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>汇率</th>
+              <th>变动</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <tr class="empty-row">
+              <td colspan="4">暂无数据，等待第一次刷新...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer class="app-footer">
+      <p>
+        数据源：<a href="https://openexchangerates.org/" target="_blank" rel="noopener">Open Exchange Rates</a> (主源，支持每小时更新) · 
+        <a href="https://open.er-api.com" target="_blank" rel="noopener">open.er-api.com</a> / 
+        <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">fawazahmed0</a> (免密钥备用源，每日更新)
+      </p>
+      <p>⚠️ 本工具显示<strong>银行间参考汇率（数据并非实时秒级跳动）</strong>，与万里汇等平台实时报价存在出入属正常：①万里汇使用实时市场价（日内波动）；②万里汇另加 0.3%~0.8% 结汇点差；③CNH 离岸价与 CNY 在岸价本身有价差。建议以本工具做趋势判断，以万里汇实时页面确认最终价格。</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

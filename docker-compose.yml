@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  rate-monitor:
+    build: .
+    container_name: rate-monitor-app
+    ports:
+      - "8080:80"  # 将主机的 8080 端口映射到容器的 80 端口。你可以根据需要更改 8080 端口
+    restart: always
