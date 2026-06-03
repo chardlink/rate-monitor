@@ -446,7 +446,7 @@ body {
 .bc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .bc-flag { font-size: 16px; }
 .bc-code { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); }
-.bc-name { font-size: 0.66rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bc-name { font-size: 0.66rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bc-rate {
   font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700;
   color: var(--text-primary); display: block; margin-bottom: 2px;
