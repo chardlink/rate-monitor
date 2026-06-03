@@ -201,7 +201,6 @@ const dom = {
 
   // 手机推送配置 DOM 映射
   notificationPanel: $('notification-panel'),
-  notifyToggle: $('notify-toggle'),
   channelFeishuCheck: $('channel-feishu-check'),
   channelDingtalkCheck: $('channel-dingtalk-check'),
   channelPushplusCheck: $('channel-pushplus-check'),
@@ -2642,7 +2641,7 @@ function initNotificationPanel() {
     if (!state.settings.notification) state.settings.notification = { enabled: false, channels: {} };
     if (!state.settings.notification.channels) state.settings.notification.channels = {};
 
-    state.settings.notification.enabled = dom.notifyToggle.checked;
+    state.settings.notification.enabled = true; // 无全局开关，始终启用，由各渠道单独控制
 
     let channelData = state.settings.notification.channels[activeChannel] || {};
 
@@ -2676,7 +2675,6 @@ function renderNotificationSettings() {
   if (!state.settings.notification) return;
 
   const n = state.settings.notification;
-  dom.notifyToggle.checked = !!n.enabled;
 
   const c = n.channels || {};
 
