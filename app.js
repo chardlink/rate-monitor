@@ -2455,11 +2455,6 @@ function showToast(icon, title, msg, duration = 4000) {
    手机推送配置管理
    =========================== */
 function initNotificationPanel() {
-  if (!isServerMode) {
-    if (dom.notificationPanel) dom.notificationPanel.style.display = 'none';
-    return;
-  }
-
   // 1. 全局开关绑定
   dom.notifyToggle.addEventListener('change', () => {
     const enabled = dom.notifyToggle.checked;
@@ -2493,26 +2488,94 @@ function initNotificationPanel() {
       btn.disabled = true;
       const originalText = btn.textContent;
       btn.textContent = '发送中';
-      fetch('/api/settings/test-notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channel, config })
-      })
-      .then(res => res.json())
-      .then(data => {
-        btn.disabled = false;
-        btn.textContent = originalText;
-        if (data.success) {
-          showToast('🔔', '测试发送成功', '请查看您的手机或邮箱是否收到消息', 3000);
-        } else {
-          showToast('⚠️', '测试发送失败', data.error || '请检查配置参数', 3500);
+
+      if (isServerMode) {
+        fetch('/api/settings/test-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel, config })
+        })
+        .then(res => res.json())
+        .then(data => {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          if (data.success) {
+            showToast('🔔', '测试发送成功', '请查看您的手机或邮箱是否收到消息', 3000);
+          } else {
+            showToast('⚠️', '测试发送失败', data.error || '请检查配置参数', 3500);
+          }
+        })
+        .catch(err => {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          showToast('⚠️', '测试连接异常', '无法连接至后端服务', 3500);
+        });
+      } else {
+        // 本地 HTML 协议直接文件模式下的处理
+        if (channel === 'email') {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          showToast('⚠️', '发送失败', '本地直接双击 HTML 打开时不支持 SMTP 发送邮件，请在部署服务器端后测试', 4000);
+          return;
         }
-      })
-      .catch(err => {
-        btn.disabled = false;
-        btn.textContent = originalText;
-        showToast('⚠️', '测试连接异常', '无法连接至后端服务', 3500);
-      });
+
+        const title = `🎯 汇率提醒测试`;
+        const text = `这是一条来自本地网页直接发起的测试推送。\n发送时间: ${new Date().toLocaleString('zh-CN')}`;
+        let promise;
+
+        if (channel === 'feishu') {
+          const payload = {
+            msg_type: "post",
+            content: { post: { zh_cn: { title, content: [[{"tag": "text", "text": text}]] } } }
+          };
+          promise = fetch(config.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } else if (channel === 'dingtalk') {
+          const payload = {
+            msgtype: "markdown",
+            markdown: { title, text: "### " + title + "\n" + text.replace(/\n/g, '\n\n') }
+          };
+          promise = fetch(config.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } else if (channel === 'pushplus') {
+          const htmlContent = `
+            <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; border-radius: 12px; max-width: 500px; border: 1px solid #e2e8f0;">
+              <h2 style="color: #7c3aed; margin-top: 0; font-size: 18px;">🎯 汇率提醒测试</h2>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                这是一条来自您本地网页端直接发送的测试消息。
+              </p>
+              <p style="color: #64748b; font-size: 12px; margin-top: 20px;">测试时间：${new Date().toLocaleString('zh-CN')}</p>
+            </div>
+          `;
+          const payload = { token: config.token, title, content: htmlContent, template: "html" };
+          promise = fetch('http://www.pushplus.plus/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }).then(res => res.json()).then(data => {
+            if (data.code !== 200) throw new Error(data.msg);
+            return { ok: true };
+          });
+        }
+
+        promise.then(() => {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          showToast('🔔', '本地测试已发出', '请求已尝试直接从浏览器发起，请查看手机是否送达（注意：可能因跨域 CORS 受限拦截）', 4000);
+        })
+        .catch(err => {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          showToast('⚠️', '本地测试异常', '接口返回错误或被跨域 CORS 规则拦截，请在部署服务器端后重新测试: ' + err.message, 4000);
+        });
+      }
     });
   };
 
@@ -2561,7 +2624,7 @@ function initNotificationPanel() {
 }
 
 function renderNotificationSettings() {
-  if (!isServerMode || !state.settings.notification) return;
+  if (!state.settings.notification) return;
 
   const n = state.settings.notification;
   dom.notifyToggle.checked = !!n.enabled;
