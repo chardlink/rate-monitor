@@ -101,6 +101,25 @@ cd rate-monitor && sudo docker compose up -d
 ```
 启动成功后，通过浏览器访问 `http://<服务器IP>:1180` 即可。
 
+### 🔄 后续版本如何一键更新？
+
+当本助手有新版本更新或 bug 修复时，您可以通过以下命令轻松完成一键升级。**更新过程会自动保留您的所有到价提醒规则、已配密钥与通知通道，数据绝不会丢失**。
+
+#### 1. 如果您使用的是「一键 Shell 脚本原生部署」（选项 A）
+您只需在服务器终端**再次运行相同的一键命令**即可。脚本会自动检测已有目录，无损拉取最新代码，更新依赖并自动重启 PM2 守护进程：
+```bash
+wget -O install.sh https://raw.githubusercontent.com/chardlink/rate-monitor/main/install.sh && sudo bash install.sh
+```
+
+#### 2. 如果您使用的是「Docker / Docker Compose 容器部署」（选项 B）
+在您的项目目录（包含 `docker-compose.yml` 的目录）下，执行以下命令即可一键拉取最新镜像并平滑重建容器：
+```bash
+docker compose pull && docker compose up -d
+```
+
+#### 3. 如果您使用的是「群晖 NAS 容器部署」（方式 2）
+打开群晖 **Container Manager** -> **项目**，选中 `rate-monitor`，点击 **“操作”** -> **“重新拉取映像”**。拉取完成后，点击项目重新 **“运行”** 即可秒速完成热更新。
+
 ---
 
 ## 📝 官方点差配置参考值
