@@ -61,7 +61,7 @@ version: '3.8'
 
 services:
   rate-monitor:
-    image: ghcr.io/chardlink/rate-monitor:latest  # 自动拉取最新公开镜像
+    image: chardchao/rate-monitor:latest  # 自动拉取最新公开镜像
     container_name: rate-monitor-app
     ports:
       - "8080:80"  # 浏览器访问端口，可根据群晖占用情况修改
@@ -71,7 +71,7 @@ services:
 ```
 3. 保存运行后，在浏览器访问 `http://<您的群晖IP>:8080` 即可。
 
-> 💡 **国内拉取超时提示**：由于国内网络连接 `ghcr.io` 镜像源经常超时受限，如果您在群晖拉取时报错，可将上方配置中的 `image: ghcr.io/chardlink/rate-monitor:latest` 替换为您自己在 Docker Hub 上自动构建的免费镜像地址（例如 `image: 您的DockerHub用户名/rate-monitor:latest`，只要在 GitHub Settings 中配置好 Docker Hub 的 Secret 即可自动生成），这样就能享受国内的 Docker 加速网络了。
+> 💡 **国内网络提示**：本镜像托管于 **Docker Hub**（`chardchao/rate-monitor:latest`），国内网络可直接拉取，无需额外代理。如您的群晖已在 Container Manager 中配置了 Docker Hub 镜像加速源，拉取速度将更快。
 
 
 ### 方式 3：Ubuntu / Linux 服务器部署
@@ -87,7 +87,7 @@ wget -O install.sh https://raw.githubusercontent.com/chardlink/rate-monitor/main
 部署成功后，会显示服务器的访问 IP 以及 PM2 管理命令。
 
 #### 选项 B：Docker / Docker Compose 容器部署
-若您偏好使用容器化部署，且服务器已安装 Docker，您可以在项目目录下创建 `docker-compose.yml` 配置文件（配置内容同上面的群晖方式 2），并在终端执行以下命令：
+若您偏好使用容器化部署，且服务器已安装 Docker，您可以在项目目录下创建 `docker-compose.yml` 配置文件（镜像地址使用 `chardchao/rate-monitor:latest`，其余配置内容同上面的群晖方式 2），并在终端执行以下命令：
 ```bash
 docker compose up -d
 ```
