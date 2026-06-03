@@ -1049,15 +1049,17 @@ input:checked + .toggle-slider::before { transform: translateX(21px); }
   border-top: 1px dashed var(--border);
 }
 
+/* 卡片竖向布局：名称/状态在上，控制在下 */
 .notify-channel-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 7px 9px;
+  padding: 9px 10px;
   transition: border-color 0.25s, background 0.25s;
+  overflow: hidden;
 }
 .notify-channel-card:hover {
   background: rgba(255, 255, 255, 0.055);
@@ -1068,14 +1070,15 @@ input:checked + .toggle-slider::before { transform: translateX(21px); }
   background: rgba(34, 197, 94, 0.04);
 }
 
+/* 上部：名称 + 状态，竖排 */
 .ncc-info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 .ncc-name {
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -1083,7 +1086,7 @@ input:checked + .toggle-slider::before { transform: translateX(21px); }
   text-overflow: ellipsis;
 }
 .ncc-status {
-  font-size: 0.62rem;
+  font-size: 0.63rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   transition: color 0.3s;
@@ -1095,26 +1098,27 @@ input:checked + .toggle-slider::before { transform: translateX(21px); }
   color: var(--text-muted);
 }
 
+/* 下部：开关 + 配置按钮，横排右对齐 */
 .ncc-right {
   display: flex;
   align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  margin-left: 6px;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 /* 小尺寸开关 */
 .toggle-sm {
-  transform: scale(0.75);
-  transform-origin: right center;
+  transform: scale(0.8);
+  transform-origin: center;
+  flex-shrink: 0;
 }
 
 /* 渠道「⚙ 配置」按钮 */
 .ncc-config-btn {
   font-size: 0.65rem;
   font-family: inherit;
-  padding: 3px 8px;
-  height: 23px;
+  padding: 3px 10px;
+  height: 24px;
   border-radius: 5px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.05);
@@ -1122,6 +1126,7 @@ input:checked + .toggle-slider::before { transform: translateX(21px); }
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .ncc-config-btn:hover {
   border-color: var(--accent-cyan);
