@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 80;
 const DATA_DIR = path.join(__dirname, 'data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 app.use(express.json());
 app.use(express.static(__dirname)); // 托管静态网页文件
@@ -34,6 +35,13 @@ async function ensureDataDir() {
       await fs.access(CONFIG_FILE);
     } catch {
       await fs.writeFile(CONFIG_FILE, JSON.stringify({ oerAppId: '' }, null, 2));
+    }
+
+    // 初始化设置文件
+    try {
+      await fs.access(SETTINGS_FILE);
+    } catch {
+      await fs.writeFile(SETTINGS_FILE, JSON.stringify({}, null, 2));
     }
 
     // 初始化历史文件
@@ -324,6 +332,32 @@ app.post('/api/settings/apikey', async (req, res) => {
     fetchAndRecordRates();
     
     res.json({ success: true, message: 'API 密钥已更新且在后台应用' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: '无法保存配置' });
+  }
+});
+
+// 4. 获取服务端常规设置与 API 密钥
+app.get('/api/settings', async (req, res) => {
+  try {
+    const settingsData = await fs.readFile(SETTINGS_FILE, 'utf8');
+    const settings = JSON.parse(settingsData);
+    const config = await getConfig();
+    res.json({
+      settings,
+      oerAppId: config.oerAppId || ''
+    });
+  } catch (err) {
+    res.status(500).json({ error: '无法读取设置' });
+  }
+});
+
+// 5. 保存常规设置
+app.post('/api/settings', async (req, res) => {
+  try {
+    const settings = req.body;
+    await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+    res.json({ success: true, message: '配置保存成功' });
   } catch (err) {
     res.status(500).json({ success: false, error: '无法保存配置' });
   }

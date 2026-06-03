@@ -1220,9 +1220,30 @@ function checkApiBudgetWarning() {
   }
 }
 
+function syncSettingsToServer() {
+  if (!isServerMode) return;
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(state.settings)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (!data.success) {
+      console.error('服务端同步配置失败:', data.error);
+    }
+  })
+  .catch(err => {
+    console.error('同步配置到服务器异常:', err);
+  });
+}
+
 function saveSettingsDataOnly() {
   try {
     localStorage.setItem('rate_settings_v3', JSON.stringify(state.settings));
+    syncSettingsToServer();
   } catch (err) {
     console.error('配置备份出错:', err);
   }
@@ -1311,6 +1332,7 @@ function saveSettings() {
 
   try {
     localStorage.setItem('rate_settings_v3', JSON.stringify(state.settings));
+    syncSettingsToServer();
   } catch (err) {
     console.error('设置保存出错:', err);
   }
@@ -1328,10 +1350,27 @@ function saveSettings() {
   showToast('💾', '配置已保存', '到价提醒规则设置已保存并开启监控', 2500);
 }
 
-function loadSettings() {
+async function loadSettings() {
+  if (isServerMode) {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings && Object.keys(data.settings).length > 0) {
+          state.settings = Object.assign({}, state.settings, data.settings);
+        }
+        if (data.oerAppId !== undefined) {
+          localStorage.setItem('rate_oer_app_id', data.oerAppId);
+        }
+      }
+    } catch (err) {
+      console.error('从服务器载入配置失败, 将使用本地缓存:', err);
+    }
+  }
+
   try {
     const saved = localStorage.getItem('rate_settings_v3');
-    if (saved) {
+    if (saved && (!isServerMode || !state.settings.pairs || Object.keys(state.settings.pairs).length === 0)) {
       const parsed = JSON.parse(saved);
       state.settings = Object.assign({}, state.settings, parsed);
     }
@@ -2132,6 +2171,7 @@ function bindEvents() {
   dom.refreshInterval.addEventListener('change', () => {
     state.settings.interval = parseInt(dom.refreshInterval.value, 10) || 60;
     checkApiBudgetWarning();
+    saveSettingsDataOnly();
   });
 
   // API 密钥可见性切换
@@ -2151,6 +2191,7 @@ function bindEvents() {
     dom.btnBaseWf.classList.remove('active');
     state.settings.alertBase = 'market';
     updateTargetStatus();
+    saveSettingsDataOnly();
   });
 
   dom.btnBaseWf.addEventListener('click', () => {
@@ -2158,17 +2199,20 @@ function bindEvents() {
     dom.btnBaseMarket.classList.remove('active');
     state.settings.alertBase = 'wf';
     updateTargetStatus();
+    saveSettingsDataOnly();
   });
 
   // 监控开关
   dom.monitorToggle.addEventListener('change', () => {
     state.settings.monitorEnabled = dom.monitorToggle.checked;
     updateTargetStatus();
+    saveSettingsDataOnly();
   });
 
   // 音频声音复选框
   dom.soundToggle.addEventListener('change', () => {
     state.settings.soundEnabled = dom.soundToggle.checked;
+    saveSettingsDataOnly();
   });
 
   // 警告横幅关闭
@@ -2397,7 +2441,7 @@ async function init() {
   loadRatesFromCache();
 
   // 从 localstorage 读取系统配置
-  loadSettings();
+  await loadSettings();
 
   // 首次运行获取最新数据（后台异步刷新）
   fetchRate();
