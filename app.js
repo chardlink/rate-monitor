@@ -1383,6 +1383,7 @@ function saveSettings() {
 }
 
 async function loadSettings() {
+  let serverLoaded = false;
   if (isServerMode) {
     try {
       const res = await fetch('/api/settings');
@@ -1394,20 +1395,24 @@ async function loadSettings() {
         if (data.oerAppId !== undefined) {
           localStorage.setItem('rate_oer_app_id', data.oerAppId);
         }
+        serverLoaded = true;
       }
     } catch (err) {
       console.error('从服务器载入配置失败, 将使用本地缓存:', err);
     }
   }
 
-  try {
-    const saved = localStorage.getItem('rate_settings_v3');
-    if (saved && (!isServerMode || !state.settings.pairs || Object.keys(state.settings.pairs).length === 0)) {
-      const parsed = JSON.parse(saved);
-      state.settings = Object.assign({}, state.settings, parsed);
+  // 仅在非服务器模式下，或者服务器请求失败时，才降级加载本地 localStorage 缓存配置
+  if (!serverLoaded) {
+    try {
+      const saved = localStorage.getItem('rate_settings_v3');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state.settings = Object.assign({}, state.settings, parsed);
+      }
+    } catch (err) {
+      console.error('设置载入出错:', err);
     }
-  } catch (err) {
-    console.error('设置载入出错:', err);
   }
 
   // 确保 pairs 是个有效对象
