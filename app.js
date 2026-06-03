@@ -2458,7 +2458,7 @@ function showToast(icon, title, msg, duration = 4000) {
    手机推送配置管理
    =========================== */
 
-// 更新单个渠道的状态徽章显示（绿色已配置 / 灰色未配置）
+// 更新单个渠道的状态徽章显示（已开启 / 已关闭 / 未配置）
 function updateChannelStatusBadge(channel, channelObj) {
   const statusEl = $('status-' + channel);
   const cardEl = $('card-' + channel);
@@ -2473,14 +2473,26 @@ function updateChannelStatusBadge(channel, channelObj) {
     isConfigured = !!(channelObj && channelObj.smtpHost && channelObj.smtpUser && channelObj.receiver);
   }
 
-  if (isConfigured) {
-    statusEl.textContent = '✓ 已配置';
-    statusEl.className = 'ncc-status ncc-status--ok';
-    cardEl.classList.add('ncc-configured');
-  } else {
+  const isEnabled = !!(channelObj && channelObj.enabled);
+
+  if (!isConfigured) {
     statusEl.textContent = '— 未配置';
     statusEl.className = 'ncc-status ncc-status--none';
+    statusEl.style.color = '';
     cardEl.classList.remove('ncc-configured');
+    cardEl.style.borderColor = '';
+  } else if (!isEnabled) {
+    statusEl.textContent = '⏸ 已关闭';
+    statusEl.className = 'ncc-status';
+    statusEl.style.color = 'var(--accent-amber)';
+    cardEl.classList.remove('ncc-configured');
+    cardEl.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+  } else {
+    statusEl.textContent = '✓ 已开启';
+    statusEl.className = 'ncc-status ncc-status--ok';
+    statusEl.style.color = '';
+    cardEl.classList.add('ncc-configured');
+    cardEl.style.borderColor = '';
   }
 }
 
@@ -2510,23 +2522,45 @@ function initNotificationPanel() {
     const targetForm = $(meta.formId);
     if (targetForm) targetForm.classList.remove('hidden');
 
+    // 同步弹窗内的渠道选择下拉框值
+    const selectEl = $('notify-channel-select');
+    if (selectEl) selectEl.value = channel;
+
     dom.notifyChannelModal.classList.remove('hidden');
   };
 
-  // 2. 绑定各个「⚙ 配置」按钮
-  const configBtns = {
-    feishu:   $('btn-config-feishu'),
-    dingtalk: $('btn-config-dingtalk'),
-    pushplus: $('btn-config-pushplus'),
-    email:    $('btn-config-email')
+  // 2. 绑定页面上的总配置按钮
+  const globalConfigBtn = $('btn-config-global');
+  if (globalConfigBtn) {
+    globalConfigBtn.addEventListener('click', () => {
+      const selectEl = $('notify-channel-select');
+      const channel = selectEl ? selectEl.value : 'feishu';
+      openChannelModal(channel);
+    });
+  }
+
+  // 3. 绑定各个卡片点击事件（作为快捷配置入口）
+  const cards = {
+    feishu:   $('card-feishu'),
+    dingtalk: $('card-dingtalk'),
+    pushplus: $('card-pushplus'),
+    email:    $('card-email')
   };
-  Object.keys(configBtns).forEach(ch => {
-    if (configBtns[ch]) {
-      configBtns[ch].addEventListener('click', () => openChannelModal(ch));
+  Object.keys(cards).forEach(ch => {
+    if (cards[ch]) {
+      cards[ch].addEventListener('click', () => openChannelModal(ch));
     }
   });
 
-  // 3. 关闭弹窗
+  // 3b. 绑定弹窗内渠道切换下拉框
+  const selectEl = $('notify-channel-select');
+  if (selectEl) {
+    selectEl.addEventListener('change', () => {
+      openChannelModal(selectEl.value);
+    });
+  }
+
+  // 4. 关闭弹窗
   if (dom.closeNotifyModal) {
     dom.closeNotifyModal.addEventListener('click', () => {
       dom.notifyChannelModal.classList.add('hidden');
@@ -2542,13 +2576,16 @@ function initNotificationPanel() {
     });
   }
 
-  // 4. 渠道启用开关 — 直接保存并更新状态
+  // 5. 渠道启用开关 — 直接保存并更新状态
   const bindChannelToggle = (checkbox, channel) => {
     checkbox.addEventListener('change', () => {
       if (!state.settings.notification) state.settings.notification = { enabled: false, channels: {} };
       if (!state.settings.notification.channels) state.settings.notification.channels = {};
       if (!state.settings.notification.channels[channel]) state.settings.notification.channels[channel] = {};
       state.settings.notification.channels[channel].enabled = checkbox.checked;
+      
+      // 实时更新主页面卡片状态
+      updateChannelStatusBadge(channel, state.settings.notification.channels[channel]);
       saveSettingsDataOnly();
     });
   };
@@ -2557,7 +2594,7 @@ function initNotificationPanel() {
   bindChannelToggle(dom.channelPushplusCheck, 'pushplus');
   bindChannelToggle(dom.channelEmailCheck,    'email');
 
-  // 5. 测试发送按钮监听（逻辑不变，仅从弹窗表单读值）
+  // 6. 测试发送按钮监听（逻辑不变，仅从弹窗表单读值）
   const bindTestBtn = (btn, channel, getConfigFn) => {
     btn.addEventListener('click', () => {
       const config = getConfigFn();
@@ -2635,7 +2672,7 @@ function initNotificationPanel() {
     receiver: dom.notifyEmailReceiver.value.trim()
   }));
 
-  // 6. 保存弹窗中的渠道配置
+  // 7. 保存弹窗中的渠道配置
   dom.btnSaveNotify.addEventListener('click', () => {
     if (!activeChannel) return;
     if (!state.settings.notification) state.settings.notification = { enabled: false, channels: {} };

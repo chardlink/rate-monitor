@@ -326,68 +326,41 @@
         <div class="panel notification-panel" id="notification-panel">
           <div class="panel-header">
             <h2 class="panel-title">🔔 手机推送配置</h2>
+            <button class="ncc-config-btn" id="btn-config-global" type="button" style="font-size:0.7rem; padding:3px 9px; height:24px; border-radius:5px;">⚙️ 配置通道</button>
           </div>
 
           <!-- 2×2 渠道状态卡片网格 -->
           <div id="notify-channels-grid" class="notify-channels-grid">
 
             <!-- 飞书 -->
-            <div class="notify-channel-card" id="card-feishu">
+            <div class="notify-channel-card" id="card-feishu" style="cursor: pointer;">
               <div class="ncc-info">
                 <span class="ncc-name">飞书机器人</span>
                 <span class="ncc-status" id="status-feishu">未配置</span>
               </div>
-              <div class="ncc-right">
-                <label class="toggle-switch toggle-sm">
-                  <input type="checkbox" id="channel-feishu-check" />
-                  <span class="toggle-slider"></span>
-                </label>
-                <button class="ncc-config-btn" id="btn-config-feishu" type="button">⚙ 配置</button>
-              </div>
             </div>
 
             <!-- 钉钉 -->
-            <div class="notify-channel-card" id="card-dingtalk">
+            <div class="notify-channel-card" id="card-dingtalk" style="cursor: pointer;">
               <div class="ncc-info">
                 <span class="ncc-name">钉钉机器人</span>
                 <span class="ncc-status" id="status-dingtalk">未配置</span>
               </div>
-              <div class="ncc-right">
-                <label class="toggle-switch toggle-sm">
-                  <input type="checkbox" id="channel-dingtalk-check" />
-                  <span class="toggle-slider"></span>
-                </label>
-                <button class="ncc-config-btn" id="btn-config-dingtalk" type="button">⚙ 配置</button>
-              </div>
             </div>
 
             <!-- Pushplus -->
-            <div class="notify-channel-card" id="card-pushplus">
+            <div class="notify-channel-card" id="card-pushplus" style="cursor: pointer;">
               <div class="ncc-info">
                 <span class="ncc-name">Pushplus (微信)</span>
                 <span class="ncc-status" id="status-pushplus">未配置</span>
               </div>
-              <div class="ncc-right">
-                <label class="toggle-switch toggle-sm">
-                  <input type="checkbox" id="channel-pushplus-check" />
-                  <span class="toggle-slider"></span>
-                </label>
-                <button class="ncc-config-btn" id="btn-config-pushplus" type="button">⚙ 配置</button>
-              </div>
             </div>
 
             <!-- 邮箱 -->
-            <div class="notify-channel-card" id="card-email">
+            <div class="notify-channel-card" id="card-email" style="cursor: pointer;">
               <div class="ncc-info">
                 <span class="ncc-name">邮箱通知</span>
                 <span class="ncc-status" id="status-email">未配置</span>
-              </div>
-              <div class="ncc-right">
-                <label class="toggle-switch toggle-sm">
-                  <input type="checkbox" id="channel-email-check" />
-                  <span class="toggle-slider"></span>
-                </label>
-                <button class="ncc-config-btn" id="btn-config-email" type="button">⚙ 配置</button>
               </div>
             </div>
 
@@ -506,8 +479,28 @@
       </div>
       <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;margin-top:10px;">
 
+        <!-- 渠道选择 -->
+        <div class="input-group" style="margin-bottom:4px;">
+          <label style="font-size:0.75rem; color:var(--text-secondary);">配置渠道</label>
+          <div class="input-wrapper" style="height:38px;">
+            <select id="notify-channel-select" class="rate-select" style="border:none;height:38px;padding-left:11px;">
+              <option value="feishu">飞书机器人</option>
+              <option value="dingtalk">钉钉机器人</option>
+              <option value="pushplus">Pushplus (微信)</option>
+              <option value="email">邮箱通知</option>
+            </select>
+          </div>
+        </div>
+
         <!-- 飞书配置内容 -->
         <div id="notify-form-feishu" class="notify-form-block hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">启用飞书机器人通知</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="channel-feishu-check" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
           <p class="notify-help-text">① 在飞书 App 中创建或进入一个<strong>群聊</strong> → 点击右上角「···」→「群设置」→「群机器人」→「添加机器人」→ 选择「自定义机器人」→ 复制生成的 Webhook 地址，粘贴到下方。<a href="https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot" target="_blank" rel="noopener" class="notify-help-link">查看官方文档 ➔</a></p>
           <div class="input-group" style="margin-bottom:0;">
             <label style="font-size:0.75rem;">飞书机器人 Webhook 地址</label>
@@ -520,6 +513,13 @@
 
         <!-- 钉钉配置内容 -->
         <div id="notify-form-dingtalk" class="notify-form-block hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">启用钉钉机器人通知</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="channel-dingtalk-check" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
           <p class="notify-help-text">① 在钉钉 PC 端打开目标群聊 → 右上角「···」→「群设置」→「机器人」→「添加机器人」→ 选「自定义」→ 安全设置选「自定义关键词」并填入 <code class="notify-code">汇率</code> → 复制 Webhook 链接（含 <code class="notify-code">access_token</code>），粘贴到下方。<a href="https://open.dingtalk.com/document/orgapp/custom-robot-access" target="_blank" rel="noopener" class="notify-help-link">查看官方文档 ➔</a></p>
           <div class="input-group" style="margin-bottom:0;">
             <label style="font-size:0.75rem;">钉钉机器人 Webhook 链接（含 access_token）</label>
@@ -532,6 +532,13 @@
 
         <!-- Pushplus 配置内容 -->
         <div id="notify-form-pushplus" class="notify-form-block hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">启用 Pushplus 微信通知</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="channel-pushplus-check" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
           <p class="notify-help-text">① 使用<strong>微信</strong>扫码登录 Pushplus 官网 → 进入「个人中心」→ 复制页面顶部的 <strong>Token（一串32位字符）</strong>，粘贴到下方即可。推送消息将直接以微信服务号消息的形式发到您手机。<a href="https://www.pushplus.plus/" target="_blank" rel="noopener" class="notify-help-link">免费注册 / 获取 Token ➔</a></p>
           <div class="input-group" style="margin-bottom:0;">
             <label style="font-size:0.75rem;">Pushplus Token（个人中心复制）</label>
@@ -544,6 +551,13 @@
 
         <!-- 邮箱配置内容 -->
         <div id="notify-form-email" class="notify-form-block hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">启用 SMTP 邮件通知</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="channel-email-check" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
           <p class="notify-help-text">① 使用 <strong>QQ/163/Gmail</strong> 等邮箱均可。以 QQ 邮箱为例：登录 QQ 邮箱网页版 →「设置」→「账户」→ 开启「SMTP 服务」→ 按提示获取并复制「授权码」(注意：<strong>授权码 ≠ 登录密码</strong>)。<a href="https://service.mail.qq.com/detail/0/339" target="_blank" rel="noopener" class="notify-help-link">QQ邮箱授权码教程 ➔</a><br>
           ② 常见 SMTP 参数：<code class="notify-code">QQ: smtp.qq.com / 465</code>，<code class="notify-code">163: smtp.163.com / 465</code>，<code class="notify-code">Gmail: smtp.gmail.com / 465</code>。<a href="https://service.mail.163.com/" target="_blank" rel="noopener" class="notify-help-link">163邮箱帮助 ➔</a></p>
           <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px;">
