@@ -319,6 +319,112 @@
                 <span style="font-size: 0.82rem;">启用提示音</span>
               </label>
             </div>
+        </div>
+
+        <!-- 🔔 手机推送配置 -->
+        <div class="panel notification-panel" id="notification-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">🔔 手机推送配置</h2>
+            <label class="toggle-switch">
+              <input type="checkbox" id="notify-toggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          
+          <div id="notify-settings-content" class="hidden" style="border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div class="notify-channels-checkboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.8rem;">
+                <input type="checkbox" id="channel-feishu-check" />
+                <span>飞书机器人</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.8rem;">
+                <input type="checkbox" id="channel-dingtalk-check" />
+                <span>钉钉机器人</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.8rem;">
+                <input type="checkbox" id="channel-pushplus-check" />
+                <span>Pushplus (微信)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.8rem;">
+                <input type="checkbox" id="channel-email-check" />
+                <span>邮箱通知</span>
+              </label>
+            </div>
+
+            <!-- 飞书配置 -->
+            <div id="config-feishu-wrap" class="hidden" style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+              <div class="input-group" style="margin-bottom: 4px;">
+                <label style="font-size: 0.68rem;">飞书 Webhook 链接</label>
+                <div class="input-wrapper" style="height:32px;">
+                  <input type="text" id="notify-feishu-url" class="rate-input" style="height:32px;font-size:0.8rem;" placeholder="https://open.feishu.cn/..." />
+                  <button class="input-suffix-btn" id="btn-test-feishu" type="button" style="height:32px;font-size:0.68rem;padding:0 8px;">测试</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 钉钉配置 -->
+            <div id="config-dingtalk-wrap" class="hidden" style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+              <div class="input-group" style="margin-bottom: 4px;">
+                <label style="font-size: 0.68rem;">钉钉 Webhook 链接 (含 access_token)</label>
+                <div class="input-wrapper" style="height:32px;">
+                  <input type="text" id="notify-dingtalk-url" class="rate-input" style="height:32px;font-size:0.8rem;" placeholder="https://oapi.dingtalk.com/..." />
+                  <button class="input-suffix-btn" id="btn-test-dingtalk" type="button" style="height:32px;font-size:0.68rem;padding:0 8px;">测试</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pushplus 配置 -->
+            <div id="config-pushplus-wrap" class="hidden" style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+              <div class="input-group" style="margin-bottom: 4px;">
+                <label style="font-size: 0.68rem;">Pushplus Token</label>
+                <div class="input-wrapper" style="height:32px;">
+                  <input type="password" id="notify-pushplus-token" class="rate-input" style="height:32px;font-size:0.8rem;" placeholder="输入 Pushplus 密钥" />
+                  <button class="input-suffix-btn" id="btn-test-pushplus" type="button" style="height:32px;font-size:0.68rem;padding:0 8px;">测试</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 邮箱配置 -->
+            <div id="config-email-wrap" class="hidden" style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 6px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label style="font-size: 0.68rem;">SMTP 服务器地址</label>
+                  <div class="input-wrapper" style="height:30px;">
+                    <input type="text" id="notify-email-host" class="rate-input" style="height:30px;font-size:0.8rem;" placeholder="如 smtp.qq.com" />
+                  </div>
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label style="font-size: 0.68rem;">端口 (Port)</label>
+                  <div class="input-wrapper" style="height:30px;">
+                    <input type="text" id="notify-email-port" class="rate-input" style="height:30px;font-size:0.8rem;" placeholder="465" />
+                  </div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label style="font-size: 0.68rem;">邮箱账号 (发信人)</label>
+                  <div class="input-wrapper" style="height:30px;">
+                    <input type="text" id="notify-email-user" class="rate-input" style="height:30px;font-size:0.8rem;" placeholder="xxxx@qq.com" />
+                  </div>
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label style="font-size: 0.68rem;">SMTP 授权码/发信密码</label>
+                  <div class="input-wrapper" style="height:30px;">
+                    <input type="password" id="notify-email-pass" class="rate-input" style="height:30px;font-size:0.8rem;" placeholder="授权密码" />
+                  </div>
+                </div>
+              </div>
+              <div class="input-group" style="margin-bottom: 4px;">
+                <label style="font-size: 0.68rem;">接收通知邮箱 (收信人)</label>
+                <div class="input-wrapper" style="height:32px;">
+                  <input type="text" id="notify-email-receiver" class="rate-input" style="height:32px;font-size:0.8rem;" placeholder="xxxx@qq.com" />
+                  <button class="input-suffix-btn" id="btn-test-email" type="button" style="height:32px;font-size:0.68rem;padding:0 8px;">测试</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 保存手机配置按钮 -->
+            <button class="quick-btn" id="btn-save-notify" type="button" style="width:100%;padding:8px 0;font-size:0.75rem;background:rgba(110,231,247,0.08);border-color:var(--accent-cyan);color:var(--accent-cyan);margin-top:4px;">💾 保存推送设置</button>
           </div>
         </div>
 

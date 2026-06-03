@@ -197,7 +197,29 @@ const dom = {
   modalAlertTitle: $('modal-alert-title'),
   modalFromCurrency: $('modal-from-currency'),
   modalToCurrency: $('modal-to-currency'),
-  monitorDotsContainer: $('monitor-dots-container')
+  monitorDotsContainer: $('monitor-dots-container'),
+
+  // 手机推送配置 DOM 映射
+  notificationPanel: $('notification-panel'),
+  notifyToggle: $('notify-toggle'),
+  notifySettingsContent: $('notify-settings-content'),
+  channelFeishuCheck: $('channel-feishu-check'),
+  channelDingtalkCheck: $('channel-dingtalk-check'),
+  channelPushplusCheck: $('channel-pushplus-check'),
+  channelEmailCheck: $('channel-email-check'),
+  notifyFeishuUrl: $('notify-feishu-url'),
+  notifyDingtalkUrl: $('notify-dingtalk-url'),
+  notifyPushplusToken: $('notify-pushplus-token'),
+  notifyEmailHost: $('notify-email-host'),
+  notifyEmailPort: $('notify-email-port'),
+  notifyEmailUser: $('notify-email-user'),
+  notifyEmailPass: $('notify-email-pass'),
+  notifyEmailReceiver: $('notify-email-receiver'),
+  btnSaveNotify: $('btn-save-notify'),
+  btnTestFeishu: $('btn-test-feishu'),
+  btnTestDingtalk: $('btn-test-dingtalk'),
+  btnTestPushplus: $('btn-test-pushplus'),
+  btnTestEmail: $('btn-test-email')
 };
 
 /* ===========================
@@ -1439,6 +1461,7 @@ async function loadSettings() {
 
   onPairChanged(from, to);
   renderAlertsList();
+  renderNotificationSettings();
 }
 
 function loadSettingsForPair(from, to) {
@@ -2379,6 +2402,8 @@ function bindEvents() {
       input.blur();
     }, { passive: false });
   });
+
+  initNotificationPanel();
 }
 
 function restartTimer() {
@@ -2424,6 +2449,156 @@ function showToast(icon, title, msg, duration = 4000) {
       }
     }, duration);
   }
+}
+
+/* ===========================
+   手机推送配置管理
+   =========================== */
+function initNotificationPanel() {
+  if (!isServerMode) {
+    if (dom.notificationPanel) dom.notificationPanel.style.display = 'none';
+    return;
+  }
+
+  // 1. 全局开关绑定
+  dom.notifyToggle.addEventListener('change', () => {
+    const enabled = dom.notifyToggle.checked;
+    if (enabled) {
+      dom.notifySettingsContent.classList.remove('hidden');
+    } else {
+      dom.notifySettingsContent.classList.add('hidden');
+    }
+  });
+
+  // 2. 复选框切换配置展示区域
+  const bindCheckWrap = (checkbox, wrap) => {
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) {
+        wrap.classList.remove('hidden');
+      } else {
+        wrap.classList.add('hidden');
+      }
+    });
+  };
+
+  bindCheckWrap(dom.channelFeishuCheck, $('config-feishu-wrap'));
+  bindCheckWrap(dom.channelDingtalkCheck, $('config-dingtalk-wrap'));
+  bindCheckWrap(dom.channelPushplusCheck, $('config-pushplus-wrap'));
+  bindCheckWrap(dom.channelEmailCheck, $('config-email-wrap'));
+
+  // 3. 测试发送按钮监听
+  const bindTestBtn = (btn, channel, getConfigFn) => {
+    btn.addEventListener('click', () => {
+      const config = getConfigFn();
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = '发送中';
+      fetch('/api/settings/test-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel, config })
+      })
+      .then(res => res.json())
+      .then(data => {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        if (data.success) {
+          showToast('🔔', '测试发送成功', '请查看您的手机或邮箱是否收到消息', 3000);
+        } else {
+          showToast('⚠️', '测试发送失败', data.error || '请检查配置参数', 3500);
+        }
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        showToast('⚠️', '测试连接异常', '无法连接至后端服务', 3500);
+      });
+    });
+  };
+
+  bindTestBtn(dom.btnTestFeishu, 'feishu', () => ({ webhookUrl: dom.notifyFeishuUrl.value.trim() }));
+  bindTestBtn(dom.btnTestDingtalk, 'dingtalk', () => ({ webhookUrl: dom.notifyDingtalkUrl.value.trim() }));
+  bindTestBtn(dom.btnTestPushplus, 'pushplus', () => ({ token: dom.notifyPushplusToken.value.trim() }));
+  bindTestBtn(dom.btnTestEmail, 'email', () => ({
+    smtpHost: dom.notifyEmailHost.value.trim(),
+    smtpPort: dom.notifyEmailPort.value.trim(),
+    smtpUser: dom.notifyEmailUser.value.trim(),
+    smtpPass: dom.notifyEmailPass.value.trim(),
+    receiver: dom.notifyEmailReceiver.value.trim()
+  }));
+
+  // 4. 保存手机推送配置
+  dom.btnSaveNotify.addEventListener('click', () => {
+    if (!state.settings.notification) state.settings.notification = { enabled: false, channels: {} };
+    
+    state.settings.notification.enabled = dom.notifyToggle.checked;
+    state.settings.notification.channels = {
+      feishu: {
+        enabled: dom.channelFeishuCheck.checked,
+        webhookUrl: dom.notifyFeishuUrl.value.trim()
+      },
+      dingtalk: {
+        enabled: dom.channelDingtalkCheck.checked,
+        webhookUrl: dom.notifyDingtalkUrl.value.trim()
+      },
+      pushplus: {
+        enabled: dom.channelPushplusCheck.checked,
+        token: dom.notifyPushplusToken.value.trim()
+      },
+      email: {
+        enabled: dom.channelEmailCheck.checked,
+        smtpHost: dom.notifyEmailHost.value.trim(),
+        smtpPort: dom.notifyEmailPort.value.trim(),
+        smtpUser: dom.notifyEmailUser.value.trim(),
+        smtpPass: dom.notifyEmailPass.value.trim(),
+        receiver: dom.notifyEmailReceiver.value.trim()
+      }
+    };
+
+    saveSettingsDataOnly();
+    showToast('💾', '推送设置已保存', '手机推送设置成功更新至服务器', 2500);
+  });
+}
+
+function renderNotificationSettings() {
+  if (!isServerMode || !state.settings.notification) return;
+
+  const n = state.settings.notification;
+  dom.notifyToggle.checked = !!n.enabled;
+  if (n.enabled) {
+    dom.notifySettingsContent.classList.remove('hidden');
+  } else {
+    dom.notifySettingsContent.classList.add('hidden');
+  }
+
+  const c = n.channels || {};
+  
+  const applyChannel = (channelObj, check, wrap, inputMaps) => {
+    check.checked = !!(channelObj && channelObj.enabled);
+    if (check.checked) {
+      wrap.classList.remove('hidden');
+    } else {
+      wrap.classList.add('hidden');
+    }
+    if (channelObj) {
+      for (let key in inputMaps) {
+        if (channelObj[key] !== undefined) {
+          inputMaps[key].value = channelObj[key];
+        }
+      }
+    }
+  };
+
+  applyChannel(c.feishu, dom.channelFeishuCheck, $('config-feishu-wrap'), { webhookUrl: dom.notifyFeishuUrl });
+  applyChannel(c.dingtalk, dom.channelDingtalkCheck, $('config-dingtalk-wrap'), { webhookUrl: dom.notifyDingtalkUrl });
+  applyChannel(c.pushplus, dom.channelPushplusCheck, $('config-pushplus-wrap'), { token: dom.notifyPushplusToken });
+  applyChannel(c.email, dom.channelEmailCheck, $('config-email-wrap'), {
+    smtpHost: dom.notifyEmailHost,
+    smtpPort: dom.notifyEmailPort,
+    smtpUser: dom.notifyEmailUser,
+    smtpPass: dom.notifyEmailPass,
+    receiver: dom.notifyEmailReceiver
+  });
 }
 
 /* ===========================

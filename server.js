@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const http = require('http');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 80;
@@ -261,6 +262,10 @@ async function fetchAndRecordRates() {
       }
 
       console.log(`[定时轮询] 汇率抓取成功，当前数据源：${api.name}，更新时间：${parsed.date}`);
+      
+      // 触发服务器多通道汇率警报检测
+      checkServerAlerts(rates);
+      
       return;
     } catch (err) {
       console.warn(`[定时轮询] 尝试使用 ${api.name} 失败:`, err.message);
@@ -357,11 +362,268 @@ app.post('/api/settings', async (req, res) => {
   try {
     const settings = req.body;
     await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+    // 重置内存中的已发送标志，确保修改规则后能立刻重新检测生效
+    serverAlertFiredPairs = {};
     res.json({ success: true, message: '配置保存成功' });
   } catch (err) {
     res.status(500).json({ success: false, error: '无法保存配置' });
   }
 });
+
+// 6. 测试通知接口
+app.post('/api/settings/test-notify', async (req, res) => {
+  const { channel, config } = req.body;
+  const title = `🎯 汇率提醒测试`;
+  const text = `这是一条汇率助时的测试推送，如果您收到这条消息，说明您的该配置项已经完全通达手机！\n发送时间: ${new Date().toLocaleString('zh-CN')}`;
+  const html = `
+    <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; border-radius: 12px; max-width: 500px; border: 1px solid #e2e8f0;">
+      <h2 style="color: #7c3aed; margin-top: 0; font-size: 18px;">🎯 汇率提醒测试</h2>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+      <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+        这是一条来自您自建的<strong>汇率实时提醒助手</strong>服务端的测试消息。如果收到本消息，说明该配置项已完全通达您的手机！
+      </p>
+      <p style="color: #64748b; font-size: 12px; margin-top: 20px;">测试时间：${new Date().toLocaleString('zh-CN')}</p>
+    </div>
+  `;
+
+  try {
+    if (channel === 'feishu') {
+      await sendFeishuNotification(config.webhookUrl, title, text);
+    } else if (channel === 'dingtalk') {
+      await sendDingTalkNotification(config.webhookUrl, title, text);
+    } else if (channel === 'pushplus') {
+      await sendPushplusNotification(config.token, title, html);
+    } else if (channel === 'email') {
+      await sendEmailNotification(config, title, html);
+    } else {
+      return res.status(400).json({ success: false, error: '不支持的通知通道' });
+    }
+    res.json({ success: true, message: '测试消息发送成功' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/* ===========================
+   手机多通道提醒机制
+   =========================== */
+let serverAlertFiredPairs = {};
+
+function getActivePlatform(settings) {
+  const activeId = settings.activePlatformId || 'wf';
+  const platforms = settings.platforms || [
+    { id: 'wf', name: '万里汇', fee: 0.38, offset: -0.0037 }
+  ];
+  return platforms.find(p => p.id === activeId) || { name: '估算', fee: 0.38, offset: 0.0 };
+}
+
+async function sendFeishuNotification(webhookUrl, title, text) {
+  const payload = {
+    msg_type: "post",
+    content: {
+      post: {
+        zh_cn: {
+          title: title,
+          content: [
+            [{"tag": "text", "text": text}]
+          ]
+        }
+      }
+    }
+  };
+  const res = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`Feishu status ${res.status}`);
+}
+
+async function sendDingTalkNotification(webhookUrl, title, text) {
+  const payload = {
+    msgtype: "markdown",
+    markdown: {
+      title: title,
+      text: "### " + title + "\n" + text.replace(/\n/g, '\n\n')
+    }
+  };
+  const res = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`DingTalk status ${res.status}`);
+}
+
+async function sendPushplusNotification(token, title, htmlContent) {
+  const payload = {
+    token: token,
+    title: title,
+    content: htmlContent,
+    template: "html"
+  };
+  const res = await fetch('http://www.pushplus.plus/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`Pushplus HTTP status ${res.status}`);
+  const data = await res.json();
+  if (data.code !== 200) throw new Error(`Pushplus error: ${data.msg}`);
+}
+
+async function sendEmailNotification(emailConfig, title, htmlContent) {
+  const transporter = nodemailer.createTransport({
+    host: emailConfig.smtpHost,
+    port: parseInt(emailConfig.smtpPort, 10) || 465,
+    secure: parseInt(emailConfig.smtpPort, 10) === 465, // SSL if 465
+    auth: {
+      user: emailConfig.smtpUser,
+      pass: emailConfig.smtpPass
+    }
+  });
+
+  const mailOptions = {
+    from: `"汇率提醒助手" <${emailConfig.smtpUser}>`,
+    to: emailConfig.receiver,
+    subject: title,
+    html: htmlContent
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+async function sendMultiChannelNotifications(pairKey, evalRate, targetRate, direction, alertBase, platform, settings) {
+  const fromCode = pairKey.split('_')[0];
+  const toCode = pairKey.split('_')[1];
+  const dirLabel = direction === 'above' ? '上涨到' : '下跌到';
+  const baseLabel = alertBase === 'wf' ? `（${platform.name}估算价）` : '（市场参考价）';
+  const timeStr = new Date().toLocaleString('zh-CN');
+
+  const title = `🎯 汇率达标提醒: ${fromCode}/${toCode}`;
+  const text = `汇率达标提醒：\n` +
+               `- 监控币对: ${fromCode} → ${toCode}\n` +
+               `- 判定依据: ${baseLabel}\n` +
+               `- 目标汇率: ${targetRate.toFixed(4)}\n` +
+               `- 当前汇率: ${evalRate.toFixed(4)} (已${dirLabel}设定值)\n` +
+               `- 触发时间: ${timeStr}`;
+
+  const html = `
+    <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; border-radius: 12px; max-width: 500px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <h2 style="color: #7c3aed; margin-top: 0; font-size: 18px;">🎯 汇率达标提醒</h2>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+      <table style="width: 100%; font-size: 14px; color: #334155; border-collapse: collapse; line-height: 1.6;">
+        <tr><td style="padding: 6px 0; font-weight: bold; width: 100px; color: #64748b;">监控币对：</td><td style="font-weight: 600;">${fromCode} → ${toCode}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: bold; color: #64748b;">判定依据：</td><td>${baseLabel}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: bold; color: #64748b;">目标汇率：</td><td style="color: #3b82f6; font-weight: bold;">${targetRate.toFixed(4)}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: bold; color: #64748b;">当前汇率：</td><td style="color: #22c55e; font-weight: bold;">${evalRate.toFixed(4)} (已${dirLabel})</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: bold; color: #64748b;">提醒时间：</td><td style="color: #64748b;">${timeStr}</td></tr>
+      </table>
+    </div>
+  `;
+
+  const channels = (settings.notification && settings.notification.channels) || {};
+  const tasks = [];
+
+  if (channels.feishu && channels.feishu.enabled && channels.feishu.webhookUrl) {
+    tasks.push((async () => {
+      try {
+        await sendFeishuNotification(channels.feishu.webhookUrl, title, text);
+        console.log(`[通知] 飞书推送成功: ${pairKey}`);
+      } catch (err) {
+        console.error(`[通知] 飞书推送失败: ${pairKey}`, err.message);
+      }
+    })());
+  }
+
+  if (channels.dingtalk && channels.dingtalk.enabled && channels.dingtalk.webhookUrl) {
+    tasks.push((async () => {
+      try {
+        await sendDingTalkNotification(channels.dingtalk.webhookUrl, title, text);
+        console.log(`[通知] 钉钉推送成功: ${pairKey}`);
+      } catch (err) {
+        console.error(`[通知] 钉钉推送失败: ${pairKey}`, err.message);
+      }
+    })());
+  }
+
+  if (channels.pushplus && channels.pushplus.enabled && channels.pushplus.token) {
+    tasks.push((async () => {
+      try {
+        await sendPushplusNotification(channels.pushplus.token, title, html);
+        console.log(`[通知] Pushplus 推送成功: ${pairKey}`);
+      } catch (err) {
+        console.error(`[通知] Pushplus 推送失败: ${pairKey}`, err.message);
+      }
+    })());
+  }
+
+  if (channels.email && channels.email.enabled && channels.email.smtpUser && channels.email.smtpPass && channels.email.receiver) {
+    tasks.push((async () => {
+      try {
+        await sendEmailNotification(channels.email, title, html);
+        console.log(`[通知] 邮件推送成功: ${pairKey}`);
+      } catch (err) {
+        console.error(`[通知] 邮件推送失败: ${pairKey}`, err.message);
+      }
+    })());
+  }
+
+  await Promise.allSettled(tasks);
+}
+
+async function checkServerAlerts(rates) {
+  try {
+    const settingsData = await fs.readFile(SETTINGS_FILE, 'utf8');
+    const fullConfig = JSON.parse(settingsData);
+    const settings = fullConfig.settings || fullConfig;
+
+    if (!settings.notification || !settings.notification.enabled) {
+      return;
+    }
+
+    const { monitorEnabled, alertBase, pairs } = settings;
+    if (!monitorEnabled || !pairs || typeof pairs !== 'object') return;
+
+    const platform = getActivePlatform(settings);
+    const isWfBase = alertBase === 'wf';
+
+    for (let pairKey in pairs) {
+      const spec = pairs[pairKey];
+      if (!spec || !spec.targetRate) continue;
+
+      const parts = pairKey.split('_');
+      if (parts.length !== 2) continue;
+
+      const fromCode = parts[0];
+      const toCode = parts[1];
+
+      const usdToFrom = rates[fromCode];
+      const usdToTo = rates[toCode];
+      if (!usdToFrom || !usdToTo) continue;
+
+      const currentRate = usdToTo / usdToFrom;
+      const evalRate = isWfBase ? currentRate * (1 - platform.fee / 100) + platform.offset : currentRate;
+      const { targetRate, direction } = spec;
+
+      const triggered =
+        (direction === 'above' && evalRate >= targetRate) ||
+        (direction === 'below' && evalRate <= targetRate);
+
+      if (triggered) {
+        if (!serverAlertFiredPairs[pairKey]) {
+          serverAlertFiredPairs[pairKey] = true;
+          // 异步分发多通道推送通知
+          sendMultiChannelNotifications(pairKey, evalRate, targetRate, direction, alertBase, platform, settings);
+        }
+      } else {
+        serverAlertFiredPairs[pairKey] = false;
+      }
+    }
+  } catch (err) {
+    console.error('[报警检测] 检测服务器通知时出错:', err);
+  }
+}
 
 // 启动服务器
 async function main() {
