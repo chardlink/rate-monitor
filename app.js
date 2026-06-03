@@ -1465,8 +1465,28 @@ async function loadSettings() {
   checkApiBudgetWarning();
 
   // 解析并对齐当前币对
-  const from = state.settings.fromCurrency || 'USD';
-  const to = state.settings.toCurrency || 'CNH';
+  let from = state.settings.fromCurrency || 'USD';
+  let to = state.settings.toCurrency || 'CNH';
+
+  // 智能默认对齐：如果设置了到价提醒，但当前币对不在到价提醒列表中，则默认加载第一组添加的提醒
+  const pairs = state.settings.pairs;
+  if (pairs && Object.keys(pairs).length > 0) {
+    const validPairs = Object.keys(pairs).filter(key => pairs[key] && pairs[key].targetRate);
+    if (validPairs.length > 0) {
+      const currentPairKey = `${from}_${to}`;
+      if (!validPairs.includes(currentPairKey)) {
+        const parts = validPairs[0].split('_');
+        if (parts.length === 2) {
+          from = parts[0];
+          to = parts[1];
+          state.settings.fromCurrency = from;
+          state.settings.toCurrency = to;
+          saveSettingsDataOnly();
+        }
+      }
+    }
+  }
+
   dom.fromCurrency.value = from;
   dom.toCurrency.value = to;
 
@@ -1819,6 +1839,13 @@ function onPairChanged(from, to) {
   state.prevRate = null;
   state.currentRate = null;
 
+  // 记录并备份当前监控对，刷新时可保留在当前所选的对上
+  if (state.settings) {
+    state.settings.fromCurrency = from;
+    state.settings.toCurrency = to;
+    saveSettingsDataOnly();
+  }
+
   updateFlags();
 
   // 1. 动态加载币对历史并重刷表格
@@ -2009,6 +2036,20 @@ function deleteAlertPair(pairKey) {
     if (currentPairKey === pairKey) {
       dom.targetRate.value = '';
       state.settings.targetRate = null;
+      
+      // 智能切换：如果删除了当前的激活提醒，且还有其他提醒存在，自动切换到下一个可用提醒
+      const pairs = state.settings.pairs;
+      const validPairs = pairs ? Object.keys(pairs).filter(key => pairs[key] && pairs[key].targetRate) : [];
+      if (validPairs.length > 0) {
+        const parts = validPairs[0].split('_');
+        if (parts.length === 2) {
+          const nextFrom = parts[0];
+          const nextTo = parts[1];
+          dom.fromCurrency.value = nextFrom;
+          dom.toCurrency.value = nextTo;
+          onPairChanged(nextFrom, nextTo);
+        }
+      }
     }
 
     saveSettingsDataOnly();
