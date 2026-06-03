@@ -411,10 +411,18 @@ async function fetchRate() {
           `;
         } else {
           dom.activeApiBadge.className = 'badge badge-amber';
-          dom.apiHint.innerHTML = `
-            当前服务端正使用免密钥的 <strong>${lastApiName}</strong>。<br>
-            您可以在下方配置您的 Open Exchange Rates APP ID 密钥，以启用官方每小时更新源。
-          `;
+          const localOerAppId = (localStorage.getItem('rate_oer_app_id') || '').trim();
+          if (localOerAppId) {
+            dom.apiHint.innerHTML = `
+              ⚠️ <strong>官方数据源连接失败：</strong>已自动平滑启用 <strong>${lastApiName}</strong>。<br>
+              请检查您的 Open Exchange Rates APP ID 密钥是否有效，或稍后重试。
+            `;
+          } else {
+            dom.apiHint.innerHTML = `
+              未配置密钥，当前正使用免密钥的 <strong>${lastApiName}</strong>（每日更新）。<br>
+              配置密钥后可启用 <strong>Open Exchange Rates 官方源</strong> 获得每小时更新的真实 CNH 离岸价。<a href="https://openexchangerates.org/signup/free" target="_blank" rel="noopener" style="color:var(--accent-cyan);text-decoration:none;">点此免费注册 ➔</a>
+            `;
+          }
         }
 
         if (data.nextUpdate) {
