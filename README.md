@@ -71,6 +71,9 @@ services:
 ```
 3. 保存运行后，在浏览器访问 `http://<您的群晖IP>:8080` 即可。
 
+> 💡 **国内拉取超时提示**：由于国内网络连接 `ghcr.io` 镜像源经常超时受限，如果您在群晖拉取时报错，可将上方配置中的 `image: ghcr.io/chardlink/rate-monitor:latest` 替换为您自己在 Docker Hub 上自动构建的免费镜像地址（例如 `image: 您的DockerHub用户名/rate-monitor:latest`，只要在 GitHub Settings 中配置好 Docker Hub 的 Secret 即可自动生成），这样就能享受国内的 Docker 加速网络了。
+
+
 ### 方式 3：Ubuntu / Linux 服务器部署
 您可以根据喜好选择 **一键脚本原生部署** 或 **Docker 容器部署**：
 
