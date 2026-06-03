@@ -48,9 +48,13 @@
 无需安装任何服务器，将代码包下载到电脑后，直接双击 **`index.html`** 文件，即可在任意浏览器中完美启动运行。
 
 ### 方式 2：群晖 NAS 容器部署（24 小时静默监控，推荐）
-利用群晖的 **Container Manager** (或 Docker) 套件，无需下载源码即可一键启动：
-1.  在群晖 `docker` 目录下新建 `rate-monitor/data` 文件夹。
-2.  在 **Container Manager** 中新建项目，选择“创建 docker-compose.yml”并输入以下配置：
+利用群晖的 **Container Manager** (旧版叫 Docker) 套件，无需下载源码即可一键启动：
+1.  **准备文件夹**：打开群晖的 `File Station`，在 `docker` 文件夹下新建一个名为 `rate-monitor` 的文件夹，并在其内部新建一个名为 `data` 的子文件夹。
+2.  **创建项目**：
+    *   打开 **Container Manager** -> **项目** -> **新增**。
+    *   **项目名称**：输入 `rate-monitor`。
+    *   **路径**：选择刚才新建的 `/docker/rate-monitor` 文件夹。
+    *   **来源**：选择 **“创建 docker-compose.yml”**，并在配置框中贴入以下配置：
 
 ```yaml
 version: '3.8'
