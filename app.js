@@ -1853,6 +1853,18 @@ function onPairChanged(from, to) {
     fetchHistoryFromServer(from, to).then(history => {
       if (state.fromCurrency === from && state.toCurrency === to) {
         state.history = history;
+        // 智能追加当前的最新实时点，防止覆盖丢失实时数据导致图表空白
+        if (state.currentRate !== null) {
+          const lastEntry = state.history[state.history.length - 1];
+          const now = Date.now();
+          if (!lastEntry || lastEntry.rate !== state.currentRate || (now - lastEntry.ts > 60000)) {
+            state.history.push({
+              ts: now,
+              rate: state.currentRate,
+              change: lastEntry ? state.currentRate - lastEntry.rate : 0
+            });
+          }
+        }
         renderHistoryTable();
         updateChartStats();
         drawChart();
@@ -1866,7 +1878,19 @@ function onPairChanged(from, to) {
       bootstrapHistoryInClient(from, to).then(history => {
         if (state.fromCurrency === from && state.toCurrency === to && history.length > 0) {
           state.history = history;
-          saveHistoryForPair(from, to, history);
+          // 智能追加当前的最新实时点
+          if (state.currentRate !== null) {
+            const lastEntry = state.history[state.history.length - 1];
+            const now = Date.now();
+            if (!lastEntry || lastEntry.rate !== state.currentRate || (now - lastEntry.ts > 60000)) {
+              state.history.push({
+                ts: now,
+                rate: state.currentRate,
+                change: lastEntry ? state.currentRate - lastEntry.rate : 0
+              });
+            }
+          }
+          saveHistoryForPair(from, to, state.history);
           renderHistoryTable();
           updateChartStats();
           drawChart();
