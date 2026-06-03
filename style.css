@@ -995,3 +995,45 @@ input:checked + .toggle-slider::before { transform: translateX(21px); }
   box-shadow: 0 0 8px var(--accent-cyan);
 }
 
+/* ===========================
+   手机推送配置 - 教程帮助文字
+   =========================== */
+.notify-help-text {
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 2px solid var(--accent-cyan);
+  border-radius: 0 6px 6px 0;
+  padding: 7px 10px;
+  margin-bottom: 8px;
+}
+
+.notify-help-link {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--accent-cyan);
+  font-weight: 600;
+  text-decoration: none;
+  opacity: 0.9;
+  transition: opacity 0.2s, text-shadow 0.2s;
+}
+.notify-help-link:hover {
+  opacity: 1;
+  text-shadow: 0 0 8px rgba(110, 231, 247, 0.6);
+  text-decoration: underline;
+}
+
+.notify-code {
+  display: inline;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.65rem;
+  color: var(--accent-amber);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin: 0 2px;
+  white-space: nowrap;
+}
+
