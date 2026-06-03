@@ -151,7 +151,6 @@ const dom = {
 
   // 历史日志
   historyPairLabel: $('history-pair-label'),
-  clearHistory: $('clear-history'),
   historyBody: $('history-body'),
 
   // 警告弹窗及 Toast
@@ -2380,13 +2379,6 @@ function bindEvents() {
 
   // 保存设置按钮
   dom.saveSettings.addEventListener('click', saveSettings);
-
-  // 清空历史按钮
-  dom.clearHistory.addEventListener('click', () => {
-    if (confirm(`确定要清空 ${state.fromCurrency}/${state.toCurrency} 的所有汇率日志记录吗？`)) {
-      clearHistory();
-    }
-  });
 
   // 图表时间间隔 Tab
   document.querySelectorAll('.tab-btn').forEach((btn) => {
