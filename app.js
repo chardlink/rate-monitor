@@ -202,11 +202,15 @@ const dom = {
   // 手机推送配置 DOM 映射
   notificationPanel: $('notification-panel'),
   notifyToggle: $('notify-toggle'),
-  notifySettingsContent: $('notify-settings-content'),
   channelFeishuCheck: $('channel-feishu-check'),
   channelDingtalkCheck: $('channel-dingtalk-check'),
   channelPushplusCheck: $('channel-pushplus-check'),
   channelEmailCheck: $('channel-email-check'),
+  // 渠道配置弹窗
+  notifyChannelModal: $('notify-channel-modal'),
+  notifyModalTitle: $('notify-modal-title'),
+  closeNotifyModal: $('close-notify-modal'),
+  // 弹窗内表单输入
   notifyFeishuUrl: $('notify-feishu-url'),
   notifyDingtalkUrl: $('notify-dingtalk-url'),
   notifyPushplusToken: $('notify-pushplus-token'),
@@ -2454,40 +2458,113 @@ function showToast(icon, title, msg, duration = 4000) {
 /* ===========================
    手机推送配置管理
    =========================== */
+
+// 更新单个渠道的状态徽章显示（绿色已配置 / 灰色未配置）
+function updateChannelStatusBadge(channel, channelObj) {
+  const statusEl = $('status-' + channel);
+  const cardEl = $('card-' + channel);
+  if (!statusEl || !cardEl) return;
+
+  let isConfigured = false;
+  if (channel === 'feishu' || channel === 'dingtalk') {
+    isConfigured = !!(channelObj && channelObj.webhookUrl && channelObj.webhookUrl.trim());
+  } else if (channel === 'pushplus') {
+    isConfigured = !!(channelObj && channelObj.token && channelObj.token.trim());
+  } else if (channel === 'email') {
+    isConfigured = !!(channelObj && channelObj.smtpHost && channelObj.smtpUser && channelObj.receiver);
+  }
+
+  if (isConfigured) {
+    statusEl.textContent = '✓ 已配置';
+    statusEl.className = 'ncc-status ncc-status--ok';
+    cardEl.classList.add('ncc-configured');
+  } else {
+    statusEl.textContent = '— 未配置';
+    statusEl.className = 'ncc-status ncc-status--none';
+    cardEl.classList.remove('ncc-configured');
+  }
+}
+
 function initNotificationPanel() {
-  // 1. 全局开关绑定
-  dom.notifyToggle.addEventListener('change', () => {
-    const enabled = dom.notifyToggle.checked;
-    if (enabled) {
-      dom.notifySettingsContent.classList.remove('hidden');
-    } else {
-      dom.notifySettingsContent.classList.add('hidden');
+  // 当前打开的渠道标识
+  let activeChannel = null;
+
+  // 渠道配置信息映射
+  const CHANNEL_META = {
+    feishu:   { label: '飞书机器人配置',       formId: 'notify-form-feishu' },
+    dingtalk: { label: '钉钉机器人配置',       formId: 'notify-form-dingtalk' },
+    pushplus: { label: 'Pushplus 微信推送配置', formId: 'notify-form-pushplus' },
+    email:    { label: '邮箱 SMTP 推送配置',   formId: 'notify-form-email' }
+  };
+
+  // 1. 打开渠道配置弹窗
+  const openChannelModal = (channel) => {
+    activeChannel = channel;
+    const meta = CHANNEL_META[channel];
+    dom.notifyModalTitle.textContent = '⚙ ' + meta.label;
+
+    // 隐藏所有 form 块，只显示当前渠道的
+    Object.keys(CHANNEL_META).forEach(ch => {
+      const formEl = $(CHANNEL_META[ch].formId);
+      if (formEl) formEl.classList.add('hidden');
+    });
+    const targetForm = $(meta.formId);
+    if (targetForm) targetForm.classList.remove('hidden');
+
+    dom.notifyChannelModal.classList.remove('hidden');
+  };
+
+  // 2. 绑定各个「⚙ 配置」按钮
+  const configBtns = {
+    feishu:   $('btn-config-feishu'),
+    dingtalk: $('btn-config-dingtalk'),
+    pushplus: $('btn-config-pushplus'),
+    email:    $('btn-config-email')
+  };
+  Object.keys(configBtns).forEach(ch => {
+    if (configBtns[ch]) {
+      configBtns[ch].addEventListener('click', () => openChannelModal(ch));
     }
   });
 
-  // 2. 复选框切换配置展示区域
-  const bindCheckWrap = (checkbox, wrap) => {
-    checkbox.addEventListener('change', () => {
-      if (checkbox.checked) {
-        wrap.classList.remove('hidden');
-      } else {
-        wrap.classList.add('hidden');
+  // 3. 关闭弹窗
+  if (dom.closeNotifyModal) {
+    dom.closeNotifyModal.addEventListener('click', () => {
+      dom.notifyChannelModal.classList.add('hidden');
+      activeChannel = null;
+    });
+  }
+  if (dom.notifyChannelModal) {
+    dom.notifyChannelModal.addEventListener('click', (e) => {
+      if (e.target === dom.notifyChannelModal) {
+        dom.notifyChannelModal.classList.add('hidden');
+        activeChannel = null;
       }
     });
+  }
+
+  // 4. 渠道启用开关 — 直接保存并更新状态
+  const bindChannelToggle = (checkbox, channel) => {
+    checkbox.addEventListener('change', () => {
+      if (!state.settings.notification) state.settings.notification = { enabled: false, channels: {} };
+      if (!state.settings.notification.channels) state.settings.notification.channels = {};
+      if (!state.settings.notification.channels[channel]) state.settings.notification.channels[channel] = {};
+      state.settings.notification.channels[channel].enabled = checkbox.checked;
+      saveSettingsDataOnly();
+    });
   };
+  bindChannelToggle(dom.channelFeishuCheck,   'feishu');
+  bindChannelToggle(dom.channelDingtalkCheck, 'dingtalk');
+  bindChannelToggle(dom.channelPushplusCheck, 'pushplus');
+  bindChannelToggle(dom.channelEmailCheck,    'email');
 
-  bindCheckWrap(dom.channelFeishuCheck, $('config-feishu-wrap'));
-  bindCheckWrap(dom.channelDingtalkCheck, $('config-dingtalk-wrap'));
-  bindCheckWrap(dom.channelPushplusCheck, $('config-pushplus-wrap'));
-  bindCheckWrap(dom.channelEmailCheck, $('config-email-wrap'));
-
-  // 3. 测试发送按钮监听
+  // 5. 测试发送按钮监听（逻辑不变，仅从弹窗表单读值）
   const bindTestBtn = (btn, channel, getConfigFn) => {
     btn.addEventListener('click', () => {
       const config = getConfigFn();
       btn.disabled = true;
       const originalText = btn.textContent;
-      btn.textContent = '发送中';
+      btn.textContent = '发送中…';
 
       if (isServerMode) {
         fetch('/api/settings/test-notify', {
@@ -2505,17 +2582,16 @@ function initNotificationPanel() {
             showToast('⚠️', '测试发送失败', data.error || '请检查配置参数', 3500);
           }
         })
-        .catch(err => {
+        .catch(() => {
           btn.disabled = false;
           btn.textContent = originalText;
           showToast('⚠️', '测试连接异常', '无法连接至后端服务', 3500);
         });
       } else {
-        // 本地 HTML 协议直接文件模式下的处理
         if (channel === 'email') {
           btn.disabled = false;
           btn.textContent = originalText;
-          showToast('⚠️', '发送失败', '本地直接双击 HTML 打开时不支持 SMTP 发送邮件，请在部署服务器端后测试', 4000);
+          showToast('⚠️', '发送失败', '本地双击 HTML 打开时不支持 SMTP，请在服务器端后测试', 4000);
           return;
         }
 
@@ -2524,65 +2600,35 @@ function initNotificationPanel() {
         let promise;
 
         if (channel === 'feishu') {
-          const payload = {
-            msg_type: "post",
-            content: { post: { zh_cn: { title, content: [[{"tag": "text", "text": text}]] } } }
-          };
-          promise = fetch(config.webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
+          const payload = { msg_type: "post", content: { post: { zh_cn: { title, content: [[{"tag": "text", "text": text}]] } } } };
+          promise = fetch(config.webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         } else if (channel === 'dingtalk') {
-          const payload = {
-            msgtype: "markdown",
-            markdown: { title, text: "### " + title + "\n" + text.replace(/\n/g, '\n\n') }
-          };
-          promise = fetch(config.webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
+          const payload = { msgtype: "markdown", markdown: { title, text: "### " + title + "\n" + text.replace(/\n/g, '\n\n') } };
+          promise = fetch(config.webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         } else if (channel === 'pushplus') {
-          const htmlContent = `
-            <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; border-radius: 12px; max-width: 500px; border: 1px solid #e2e8f0;">
-              <h2 style="color: #7c3aed; margin-top: 0; font-size: 18px;">🎯 汇率提醒测试</h2>
-              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                这是一条来自您本地网页端直接发送的测试消息。
-              </p>
-              <p style="color: #64748b; font-size: 12px; margin-top: 20px;">测试时间：${new Date().toLocaleString('zh-CN')}</p>
-            </div>
-          `;
+          const htmlContent = `<div style="font-family:sans-serif;padding:20px;"><h2>🎯 汇率提醒测试</h2><p>${text}</p><p style="color:#64748b;font-size:12px;">时间：${new Date().toLocaleString('zh-CN')}</p></div>`;
           const payload = { token: config.token, title, content: htmlContent, template: "html" };
-          promise = fetch('http://www.pushplus.plus/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          }).then(res => res.json()).then(data => {
-            if (data.code !== 200) throw new Error(data.msg);
-            return { ok: true };
-          });
+          promise = fetch('http://www.pushplus.plus/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            .then(res => res.json()).then(data => { if (data.code !== 200) throw new Error(data.msg); return { ok: true }; });
         }
 
         promise.then(() => {
           btn.disabled = false;
           btn.textContent = originalText;
-          showToast('🔔', '本地测试已发出', '请求已尝试直接从浏览器发起，请查看手机是否送达（注意：可能因跨域 CORS 受限拦截）', 4000);
-        })
-        .catch(err => {
+          showToast('🔔', '本地测试已发出', '请查看手机（注意：可能因跨域 CORS 受限）', 4000);
+        }).catch(err => {
           btn.disabled = false;
           btn.textContent = originalText;
-          showToast('⚠️', '本地测试异常', '接口返回错误或被跨域 CORS 规则拦截，请在部署服务器端后重新测试: ' + err.message, 4000);
+          showToast('⚠️', '本地测试异常', '请在服务器端重新测试: ' + err.message, 4000);
         });
       }
     });
   };
 
-  bindTestBtn(dom.btnTestFeishu, 'feishu', () => ({ webhookUrl: dom.notifyFeishuUrl.value.trim() }));
+  bindTestBtn(dom.btnTestFeishu,   'feishu',   () => ({ webhookUrl: dom.notifyFeishuUrl.value.trim() }));
   bindTestBtn(dom.btnTestDingtalk, 'dingtalk', () => ({ webhookUrl: dom.notifyDingtalkUrl.value.trim() }));
   bindTestBtn(dom.btnTestPushplus, 'pushplus', () => ({ token: dom.notifyPushplusToken.value.trim() }));
-  bindTestBtn(dom.btnTestEmail, 'email', () => ({
+  bindTestBtn(dom.btnTestEmail,    'email',    () => ({
     smtpHost: dom.notifyEmailHost.value.trim(),
     smtpPort: dom.notifyEmailPort.value.trim(),
     smtpUser: dom.notifyEmailUser.value.trim(),
@@ -2590,36 +2636,39 @@ function initNotificationPanel() {
     receiver: dom.notifyEmailReceiver.value.trim()
   }));
 
-  // 4. 保存手机推送配置
+  // 6. 保存弹窗中的渠道配置
   dom.btnSaveNotify.addEventListener('click', () => {
+    if (!activeChannel) return;
     if (!state.settings.notification) state.settings.notification = { enabled: false, channels: {} };
-    
+    if (!state.settings.notification.channels) state.settings.notification.channels = {};
+
     state.settings.notification.enabled = dom.notifyToggle.checked;
-    state.settings.notification.channels = {
-      feishu: {
-        enabled: dom.channelFeishuCheck.checked,
-        webhookUrl: dom.notifyFeishuUrl.value.trim()
-      },
-      dingtalk: {
-        enabled: dom.channelDingtalkCheck.checked,
-        webhookUrl: dom.notifyDingtalkUrl.value.trim()
-      },
-      pushplus: {
-        enabled: dom.channelPushplusCheck.checked,
-        token: dom.notifyPushplusToken.value.trim()
-      },
-      email: {
-        enabled: dom.channelEmailCheck.checked,
-        smtpHost: dom.notifyEmailHost.value.trim(),
-        smtpPort: dom.notifyEmailPort.value.trim(),
-        smtpUser: dom.notifyEmailUser.value.trim(),
-        smtpPass: dom.notifyEmailPass.value.trim(),
-        receiver: dom.notifyEmailReceiver.value.trim()
-      }
-    };
+
+    let channelData = state.settings.notification.channels[activeChannel] || {};
+
+    if (activeChannel === 'feishu') {
+      channelData.webhookUrl = dom.notifyFeishuUrl.value.trim();
+    } else if (activeChannel === 'dingtalk') {
+      channelData.webhookUrl = dom.notifyDingtalkUrl.value.trim();
+    } else if (activeChannel === 'pushplus') {
+      channelData.token = dom.notifyPushplusToken.value.trim();
+    } else if (activeChannel === 'email') {
+      channelData.smtpHost = dom.notifyEmailHost.value.trim();
+      channelData.smtpPort = dom.notifyEmailPort.value.trim();
+      channelData.smtpUser = dom.notifyEmailUser.value.trim();
+      channelData.smtpPass = dom.notifyEmailPass.value.trim();
+      channelData.receiver = dom.notifyEmailReceiver.value.trim();
+    }
+
+    state.settings.notification.channels[activeChannel] = channelData;
+
+    // 更新状态徽章
+    updateChannelStatusBadge(activeChannel, channelData);
 
     saveSettingsDataOnly();
-    showToast('💾', '推送设置已保存', '手机推送设置成功更新至服务器', 2500);
+    showToast('💾', '配置已保存', `${CHANNEL_META[activeChannel].label}已成功保存`, 2500);
+    dom.notifyChannelModal.classList.add('hidden');
+    activeChannel = null;
   });
 }
 
@@ -2628,40 +2677,32 @@ function renderNotificationSettings() {
 
   const n = state.settings.notification;
   dom.notifyToggle.checked = !!n.enabled;
-  if (n.enabled) {
-    dom.notifySettingsContent.classList.remove('hidden');
-  } else {
-    dom.notifySettingsContent.classList.add('hidden');
-  }
 
   const c = n.channels || {};
-  
-  const applyChannel = (channelObj, check, wrap, inputMaps) => {
-    check.checked = !!(channelObj && channelObj.enabled);
-    if (check.checked) {
-      wrap.classList.remove('hidden');
-    } else {
-      wrap.classList.add('hidden');
-    }
-    if (channelObj) {
-      for (let key in inputMaps) {
-        if (channelObj[key] !== undefined) {
-          inputMaps[key].value = channelObj[key];
-        }
-      }
-    }
-  };
 
-  applyChannel(c.feishu, dom.channelFeishuCheck, $('config-feishu-wrap'), { webhookUrl: dom.notifyFeishuUrl });
-  applyChannel(c.dingtalk, dom.channelDingtalkCheck, $('config-dingtalk-wrap'), { webhookUrl: dom.notifyDingtalkUrl });
-  applyChannel(c.pushplus, dom.channelPushplusCheck, $('config-pushplus-wrap'), { token: dom.notifyPushplusToken });
-  applyChannel(c.email, dom.channelEmailCheck, $('config-email-wrap'), {
-    smtpHost: dom.notifyEmailHost,
-    smtpPort: dom.notifyEmailPort,
-    smtpUser: dom.notifyEmailUser,
-    smtpPass: dom.notifyEmailPass,
-    receiver: dom.notifyEmailReceiver
-  });
+  // 填充弹窗表单数据（用于打开弹窗时已有值）
+  if (c.feishu && dom.notifyFeishuUrl)     dom.notifyFeishuUrl.value   = c.feishu.webhookUrl   || '';
+  if (c.dingtalk && dom.notifyDingtalkUrl) dom.notifyDingtalkUrl.value = c.dingtalk.webhookUrl || '';
+  if (c.pushplus && dom.notifyPushplusToken) dom.notifyPushplusToken.value = c.pushplus.token  || '';
+  if (c.email) {
+    if (dom.notifyEmailHost)     dom.notifyEmailHost.value     = c.email.smtpHost  || '';
+    if (dom.notifyEmailPort)     dom.notifyEmailPort.value     = c.email.smtpPort  || '';
+    if (dom.notifyEmailUser)     dom.notifyEmailUser.value     = c.email.smtpUser  || '';
+    if (dom.notifyEmailPass)     dom.notifyEmailPass.value     = c.email.smtpPass  || '';
+    if (dom.notifyEmailReceiver) dom.notifyEmailReceiver.value = c.email.receiver  || '';
+  }
+
+  // 渠道启用状态
+  if (dom.channelFeishuCheck)   dom.channelFeishuCheck.checked   = !!(c.feishu   && c.feishu.enabled);
+  if (dom.channelDingtalkCheck) dom.channelDingtalkCheck.checked = !!(c.dingtalk && c.dingtalk.enabled);
+  if (dom.channelPushplusCheck) dom.channelPushplusCheck.checked = !!(c.pushplus && c.pushplus.enabled);
+  if (dom.channelEmailCheck)    dom.channelEmailCheck.checked    = !!(c.email    && c.email.enabled);
+
+  // 刷新所有状态徽章
+  updateChannelStatusBadge('feishu',   c.feishu);
+  updateChannelStatusBadge('dingtalk', c.dingtalk);
+  updateChannelStatusBadge('pushplus', c.pushplus);
+  updateChannelStatusBadge('email',    c.email);
 }
 
 /* ===========================
