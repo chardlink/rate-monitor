@@ -325,6 +325,28 @@ app.get('/api/history', async (req, res) => {
   }
 });
 
+// 清除特定币对的历史记录
+app.post('/api/history/clear', async (req, res) => {
+  const { from = 'USD', to = 'CNH' } = req.body;
+  const fromUpper = from.toUpperCase();
+  const toUpper = to.toUpperCase();
+
+  try {
+    const history = await getHistory();
+    // 遍历历史记录，删除对应的币种键，使其在此后的交叉汇率映射中被过滤掉
+    history.forEach(h => {
+      if (h.rates) {
+        delete h.rates[fromUpper];
+        delete h.rates[toUpper];
+      }
+    });
+    await saveHistory(history);
+    res.json({ success: true, message: '该币对历史记录清空成功' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: '无法清空历史记录' });
+  }
+});
+
 // 3. 后端持久化设置 API 密钥
 app.post('/api/settings/apikey', async (req, res) => {
   const { oerAppId = '' } = req.body;

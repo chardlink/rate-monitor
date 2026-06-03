@@ -1660,13 +1660,45 @@ function loadHistory() {
 }
 
 function clearHistory() {
-  state.history = [];
-  saveHistory();
-  renderHistoryTable();
-  updateChartStats();
-  drawChart();
-  updateTargetStatus();
-  showToast('🧹', '记录已清空', `已清空主监控对 ${state.fromCurrency}/${state.toCurrency} 的本地历史`, 2500);
+  const from = state.fromCurrency;
+  const to = state.toCurrency;
+
+  if (confirm(`确定要彻底清空 ${from}/${to} 的所有汇率历史日志记录吗？`)) {
+    if (isServerMode) {
+      fetch('/api/history/clear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ from, to })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          state.history = [];
+          renderHistoryTable();
+          updateChartStats();
+          drawChart();
+          updateTargetStatus();
+          showToast('🧹', '记录已清空', `已成功清空 ${from}/${to} 的服务端及本地历史记录`, 2500);
+        } else {
+          showToast('⚠️', '清空失败', '服务端清空历史失败，请检查连接', 3000);
+        }
+      })
+      .catch(err => {
+        console.error('清空历史异常:', err);
+        showToast('⚠️', '清空异常', '无法连接到服务端以清空历史记录', 3000);
+      });
+    } else {
+      state.history = [];
+      saveHistory();
+      renderHistoryTable();
+      updateChartStats();
+      drawChart();
+      updateTargetStatus();
+      showToast('🧹', '记录已清空', `已成功清空 ${from}/${to} 的本地历史记录`, 2500);
+    }
+  }
 }
 
 /* ===========================
@@ -1739,6 +1771,27 @@ function updateTargetStatus() {
   dom.displayMonitorStatus.innerHTML = monitorStatus;
 }
 
+function formatHistoryTime(ts) {
+  const now = Date.now();
+  const diff = now - ts;
+  const dateObj = new Date(ts);
+  if (diff < 24 * 60 * 60 * 1000) {
+    // 24小时以内：仅显示时间 (例如 14:35:08)
+    return dateObj.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } else {
+    // 超过24小时：显示日期和时间 (例如 06-02 22:30)
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const date = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    return `${month}-${date} ${hours}:${minutes}`;
+  }
+}
+
 function addHistoryRow(entry) {
   const tbody = dom.historyBody;
   if (!tbody) return;
@@ -1749,11 +1802,7 @@ function addHistoryRow(entry) {
   const tr = document.createElement('tr');
   tr.className = 'new-row';
 
-  const time = new Date(entry.ts).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  const time = formatHistoryTime(entry.ts);
 
   const changeDir = entry.change > 0.00005 ? '▲' : entry.change < -0.00005 ? '▼' : '—';
   const changeClass = entry.change > 0.00005 ? 'rate-up' : entry.change < -0.00005 ? 'rate-down' : 'rate-flat';
@@ -1798,11 +1847,7 @@ function renderHistoryTable() {
   const reversed = [...state.history].reverse();
   reversed.forEach((entry) => {
     const tr = document.createElement('tr');
-    const time = new Date(entry.ts).toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    const time = formatHistoryTime(entry.ts);
 
     const changeDir = entry.change > 0.00005 ? '▲' : entry.change < -0.00005 ? '▼' : '—';
     const changeClass = entry.change > 0.00005 ? 'rate-up' : entry.change < -0.00005 ? 'rate-down' : 'rate-flat';
