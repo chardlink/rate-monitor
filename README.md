@@ -55,10 +55,31 @@ services:
 3. 保存运行后，在浏览器访问 `http://<您的群晖IP>:8080` 即可。
 
 ### 方式 3：Ubuntu / Linux 服务器部署
-在您的 Linux 服务器终端中，新建一个目录并创建 `docker-compose.yml`（配置同上），然后执行命令启动：
+您可以根据喜好选择 **一键脚本原生部署** 或 **Docker 容器部署**：
+
+#### 选项 A：一键 Shell 脚本原生部署（无需安装 Docker，最方便）
+如果您的服务器未安装 Docker，可以使用我们专门设计的一键自动部署脚本。该脚本会自动帮您配置 Node.js 运行环境与 PM2 进程守护工具，自动配置开机自启，并静默挂起 24 小时监控后台。
+
+您只需在 Ubuntu/Linux 服务器终端执行以下一行命令即可：
+```bash
+wget -O install.sh https://raw.githubusercontent.com/chardlink/rate-monitor/main/install.sh && sudo bash install.sh
+```
+部署成功后，会显示服务器的访问 IP 以及 PM2 管理命令。
+
+#### 选项 B：Docker / Docker Compose 容器部署
+若您偏好使用容器化部署，且服务器已安装 Docker，您可以在项目目录下创建 `docker-compose.yml` 配置文件（配置内容同上面的群晖方式 2），并在终端执行以下命令：
 ```bash
 docker compose up -d
 ```
+或者您也可以直接克隆 GitHub 仓库代码并一键启动：
+```bash
+# 1. 克隆代码仓库
+git clone https://github.com/chardlink/rate-monitor.git
+
+# 2. 进入项目目录并启动
+cd rate-monitor && sudo docker compose up -d
+```
+启动成功后，通过浏览器访问 `http://<服务器IP>:8080` 即可。
 
 ---
 
