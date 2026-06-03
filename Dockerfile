@@ -14,7 +14,7 @@ RUN npm install --only=production
 COPY . .
 
 # 暴露 Express 默认服务端口
-EXPOSE 80
+EXPOSE 1180
 
 # 挂载本地持久卷，确保汇率历史和配置文件重新启动时不丢失
 VOLUME ["/usr/src/app/data"]

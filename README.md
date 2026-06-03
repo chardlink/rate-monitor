@@ -64,12 +64,12 @@ services:
     image: chardchao/rate-monitor:latest  # 自动拉取最新公开镜像
     container_name: rate-monitor-app
     ports:
-      - "8080:80"  # 浏览器访问端口，可根据群晖占用情况修改
+      - "1180:1180"  # 浏览器访问端口，可根据占用情况修改
     volumes:
       - ./data:/usr/src/app/data  # 挂载数据卷以保存您的提醒规则与密钥
     restart: always
 ```
-3. 保存运行后，在浏览器访问 `http://<您的群晖IP>:8080` 即可。
+3. 保存运行后，在浏览器访问 `http://<您的群晖IP>:1180` 即可。
 
 > 💡 **国内网络提示**：本镜像托管于 **Docker Hub**（`chardchao/rate-monitor:latest`），国内网络可直接拉取，无需额外代理。如您的群晖已在 Container Manager 中配置了 Docker Hub 镜像加速源，拉取速度将更快。
 
@@ -99,7 +99,7 @@ git clone https://github.com/chardlink/rate-monitor.git
 # 2. 进入项目目录并启动
 cd rate-monitor && sudo docker compose up -d
 ```
-启动成功后，通过浏览器访问 `http://<服务器IP>:8080` 即可。
+启动成功后，通过浏览器访问 `http://<服务器IP>:1180` 即可。
 
 ---
 

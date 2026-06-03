@@ -5,7 +5,7 @@ services:
     build: .
     container_name: rate-monitor-app
     ports:
-      - "8080:80"  # 映射本地 8080 端口，可自由修改为 8081 等其他端口
+      - "1180:1180"  # 映射本地 1180 端口，可自由修改为 1181 等其他端口
     volumes:
       - ./data:/usr/src/app/data  # 极度重要：挂载本地 data 目录实现历史记录和密钥设置的永久存储
     restart: always

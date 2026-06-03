@@ -5,7 +5,7 @@ const http = require('http');
 const nodemailer = require('nodemailer');
 
 const app = express();
-const PORT = process.env.PORT || 80;
+const PORT = process.env.PORT || 1180;
 
 // 数据存储路径设置 (支持挂载群晖持久卷)
 const DATA_DIR = path.join(__dirname, 'data');

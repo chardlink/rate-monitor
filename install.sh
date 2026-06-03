@@ -92,7 +92,7 @@ fi
 echo -e "${BLUE}ℹ️ 正在通过 PM2 启动服务...${NC}"
 pm2 stop rate-monitor &> /dev/null || true
 pm2 delete rate-monitor &> /dev/null || true
-PORT=80 pm2 start server.js --name "rate-monitor"
+PORT=1180 pm2 start server.js --name "rate-monitor"
 
 # 保存并设置开机自动启动
 pm2 save
@@ -111,7 +111,7 @@ if [ -z "$IP_ADDR" ]; then
   IP_ADDR="您的服务器IP"
 fi
 
-echo -e "🌎 ${BLUE}访问地址：${NC} http://${IP_ADDR}"
+echo -e "🌎 ${BLUE}访问地址：${NC} http://${IP_ADDR}:1180"
 echo -e "📂 ${BLUE}代码安装目录：${NC} ${INSTALL_DIR}"
 echo -e "💾 ${BLUE}数据持久化存储：${NC} ${INSTALL_DIR}/data (支持 30 天历史及设置永久保存)"
 echo ""
@@ -121,5 +121,5 @@ echo -e "  - 查看后台实时日志输出: ${GREEN}pm2 logs rate-monitor${NC}"
 echo -e "  - 重启监控服务: ${GREEN}pm2 restart rate-monitor${NC}"
 echo -e "  - 停止监控服务: ${GREEN}pm2 stop rate-monitor${NC}"
 echo ""
-echo -e "⚠️  ${RED}重要提醒：${NC}如网页无法打开，请确保服务器防火墙或云安全组的 ${YELLOW}80 端口${NC} 已对外开放。"
+echo -e "⚠️  ${RED}重要提醒：${NC}如网页无法打开，请确保服务器防火墙或云安全组的 ${YELLOW}1180 端口${NC} 已对外开放。"
 echo -e "${BLUE}================================================================${NC}"
