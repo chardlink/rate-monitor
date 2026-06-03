@@ -1792,6 +1792,15 @@ function formatHistoryTime(ts) {
   }
 }
 
+function getRateFormatParams(rate) {
+  if (rate >= 100) return { precision: 2, threshold: 0.005 };
+  if (rate >= 10) return { precision: 3, threshold: 0.0005 };
+  if (rate >= 1) return { precision: 4, threshold: 0.00005 };
+  if (rate >= 0.1) return { precision: 5, threshold: 0.000005 };
+  if (rate >= 0.01) return { precision: 6, threshold: 0.0000005 };
+  return { precision: 7, threshold: 0.00000005 };
+}
+
 function addHistoryRow(entry) {
   const tbody = dom.historyBody;
   if (!tbody) return;
@@ -1803,9 +1812,10 @@ function addHistoryRow(entry) {
   tr.className = 'new-row';
 
   const time = formatHistoryTime(entry.ts);
+  const params = getRateFormatParams(entry.rate);
 
-  const changeDir = entry.change > 0.00005 ? '▲' : entry.change < -0.00005 ? '▼' : '—';
-  const changeClass = entry.change > 0.00005 ? 'rate-up' : entry.change < -0.00005 ? 'rate-down' : 'rate-flat';
+  const changeDir = entry.change > params.threshold ? '▲' : entry.change < -params.threshold ? '▼' : '—';
+  const changeClass = entry.change > params.threshold ? 'rate-up' : entry.change < -params.threshold ? 'rate-down' : 'rate-flat';
 
   const { targetRate, direction } = state.settings;
   let statusBadge = '';
@@ -1822,8 +1832,8 @@ function addHistoryRow(entry) {
 
   tr.innerHTML = `
     <td>${time}</td>
-    <td style="color:var(--text-primary);font-weight:600">${entry.rate.toFixed(4)}</td>
-    <td class="${changeClass}">${changeDir} ${Math.abs(entry.change).toFixed(4)}</td>
+    <td style="color:var(--text-primary);font-weight:600">${entry.rate.toFixed(params.precision)}</td>
+    <td class="${changeClass}">${changeDir} ${Math.abs(entry.change).toFixed(params.precision)}</td>
     <td>${statusBadge}</td>
   `;
 
@@ -1848,9 +1858,10 @@ function renderHistoryTable() {
   reversed.forEach((entry) => {
     const tr = document.createElement('tr');
     const time = formatHistoryTime(entry.ts);
+    const params = getRateFormatParams(entry.rate);
 
-    const changeDir = entry.change > 0.00005 ? '▲' : entry.change < -0.00005 ? '▼' : '—';
-    const changeClass = entry.change > 0.00005 ? 'rate-up' : entry.change < -0.00005 ? 'rate-down' : 'rate-flat';
+    const changeDir = entry.change > params.threshold ? '▲' : entry.change < -params.threshold ? '▼' : '—';
+    const changeClass = entry.change > params.threshold ? 'rate-up' : entry.change < -params.threshold ? 'rate-down' : 'rate-flat';
 
     const { targetRate, direction } = state.settings;
     let statusBadge = '';
@@ -1867,8 +1878,8 @@ function renderHistoryTable() {
 
     tr.innerHTML = `
       <td>${time}</td>
-      <td style="color:var(--text-primary);font-weight:600">${entry.rate.toFixed(4)}</td>
-      <td class="${changeClass}">${changeDir} ${Math.abs(entry.change).toFixed(4)}</td>
+      <td style="color:var(--text-primary);font-weight:600">${entry.rate.toFixed(params.precision)}</td>
+      <td class="${changeClass}">${changeDir} ${Math.abs(entry.change).toFixed(params.precision)}</td>
       <td>${statusBadge}</td>
     `;
     tbody.appendChild(tr);
