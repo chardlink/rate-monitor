@@ -1007,8 +1007,8 @@ function updateRateBoard() {
     const targetVal = state.allRates[code];
     if (!targetVal) return;
 
-    // 计算基准货币折算汇率
-    const rate = targetVal / baseRate;
+    // 计算基准货币折算汇率 (以 base 作为结算币种，即 1 外币 = 多少本币)
+    const rate = baseRate / targetVal;
 
     const curr = CURRENCY_LIST.find((c) => c.code === code) || { flag: '🏳️', name: code };
     
